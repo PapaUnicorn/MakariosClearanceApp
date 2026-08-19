@@ -1,0 +1,6 @@
+{
+  "name": "Makarios Clearance App",
+  "description": "Aplikasi rekap status clearance siswa dan guru dari Google Classroom untuk memantau tugas yang belum selesai atau belum digrading.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
