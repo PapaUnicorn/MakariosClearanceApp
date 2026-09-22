@@ -14,7 +14,10 @@ import {
   X,
   RotateCcw,
   Users,
-  Layers,
+  ChevronDown,
+  ChevronUp,
+  FileCheck,
+  Calendar,
 } from 'lucide-react';
 import { TeacherSummaryRecord } from '../types';
 import { exportTeachersToPDF } from '../utils/pdfExport';
@@ -25,193 +28,317 @@ interface TeacherClearanceTableProps {
   onSelectTeacherRecord: (record: TeacherSummaryRecord) => void;
 }
 
+export interface FlattenedTeacherTaskRow {
+  rowId: string;
+  teacherId: string;
+  teacherName: string;
+  teacherEmail: string;
+  teacherPhoto?: string;
+  className: string;
+  courseId: string;
+  courseName: string;
+  courseLink?: string;
+  courseWorkId: string;
+  courseWorkTitle: string;
+  courseWorkLink?: string;
+  dueDateStr?: string;
+  ungradedCount: number;
+  ungradedStudents: {
+    studentId: string;
+    studentName: string;
+    studentEmail: string;
+    submissionLink?: string;
+  }[];
+  isClear: boolean;
+  parentRecord: TeacherSummaryRecord;
+}
+
 export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
   records,
   onSelectTeacherRecord,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTeachers, setSelectedTeachers] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'NEED_GRADING' | 'CLEAR'>('ALL');
-  const [workloadFilter, setWorkloadFilter] = useState<'ALL' | 'HEAVY' | 'MEDIUM' | 'ZERO'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'PENDING_ONLY' | 'ALL' | 'CLEAR_ONLY'>('PENDING_ONLY');
+  const [studentCountFilter, setStudentCountFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const [expandedStudentsRowId, setExpandedStudentsRowId] = useState<string | null>(null);
 
-  // Extract unique classes across all teachers
+  // 1. Flatten records into: 1 baris per 1 tugas belum dinilai
+  const allFlattenedRows = useMemo(() => {
+    const rows: FlattenedTeacherTaskRow[] = [];
+
+    records.forEach((teacher) => {
+      if (teacher.ungradedTasksList && teacher.ungradedTasksList.length > 0) {
+        teacher.ungradedTasksList.forEach((task, idx) => {
+          // Find matching course for link if available
+          const courseMatch = teacher.assignedCourses.find((c) => c.courseId === task.courseId);
+
+          rows.push({
+            rowId: `${teacher.teacherId}-${task.courseId}-${task.courseWorkId || idx}`,
+            teacherId: teacher.teacherId,
+            teacherName: teacher.teacherName,
+            teacherEmail: teacher.teacherEmail,
+            teacherPhoto: teacher.teacherPhoto,
+            className: task.className || '-',
+            courseId: task.courseId,
+            courseName: task.courseName,
+            courseLink: courseMatch?.courseLink,
+            courseWorkId: task.courseWorkId,
+            courseWorkTitle: task.courseWorkTitle,
+            courseWorkLink: task.courseWorkLink,
+            dueDateStr: task.dueDateStr,
+            ungradedCount: task.ungradedCount || 0,
+            ungradedStudents: task.ungradedStudents || [],
+            isClear: false,
+            parentRecord: teacher,
+          });
+        });
+      } else {
+        // Teacher has 0 ungraded tasks (all clear)
+        const primaryClass = teacher.assignedCourses.map((c) => c.className).filter(Boolean).join(', ') || '-';
+        const primaryCourse = teacher.assignedCourses.map((c) => c.courseName).filter(Boolean).join(', ') || 'Semua Mata Pelajaran';
+
+        rows.push({
+          rowId: `${teacher.teacherId}-cleared`,
+          teacherId: teacher.teacherId,
+          teacherName: teacher.teacherName,
+          teacherEmail: teacher.teacherEmail,
+          teacherPhoto: teacher.teacherPhoto,
+          className: primaryClass,
+          courseId: 'all-clear',
+          courseName: primaryCourse,
+          courseWorkId: 'clear',
+          courseWorkTitle: 'Semua submisi tugas telah dinilai (Tuntas)',
+          ungradedCount: 0,
+          ungradedStudents: [],
+          isClear: true,
+          parentRecord: teacher,
+        });
+      }
+    });
+
+    return rows;
+  }, [records]);
+
+  // Unique options for filters based on all rows
+  const availableTeachers = useMemo(() => {
+    const set = new Set<string>();
+    records.forEach((r) => {
+      if (r.teacherName) set.add(r.teacherName);
+    });
+    return Array.from(set).sort();
+  }, [records]);
+
   const availableClasses = useMemo(() => {
-    const classSet = new Set<string>();
-    records.forEach((teacher) => {
-      teacher.assignedCourses.forEach((c) => {
-        if (c.className && c.className.trim()) {
-          classSet.add(c.className.trim());
-        }
-      });
+    const set = new Set<string>();
+    allFlattenedRows.forEach((row) => {
+      if (row.className && row.className !== '-') {
+        set.add(row.className);
+      }
     });
-    return Array.from(classSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [records]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [allFlattenedRows]);
 
-  // Extract unique course names across all teachers
   const availableCourses = useMemo(() => {
-    const courseSet = new Set<string>();
-    records.forEach((teacher) => {
-      teacher.assignedCourses.forEach((c) => {
-        if (c.courseName && c.courseName.trim()) {
-          courseSet.add(c.courseName.trim());
-        }
-      });
+    const set = new Set<string>();
+    allFlattenedRows.forEach((row) => {
+      if (row.courseName && row.courseName !== 'Semua Mata Pelajaran') {
+        set.add(row.courseName);
+      }
     });
-    return Array.from(courseSet).sort();
-  }, [records]);
+    return Array.from(set).sort();
+  }, [allFlattenedRows]);
 
-  // Calculate counts for class options
+  // Counts for filters
+  const teacherCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    availableTeachers.forEach((t) => {
+      counts[t] = allFlattenedRows.filter((r) => r.teacherName === t && !r.isClear).length;
+    });
+    return counts;
+  }, [availableTeachers, allFlattenedRows]);
+
   const classCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     availableClasses.forEach((cls) => {
-      counts[cls] = records.filter((t) => t.assignedCourses.some((c) => c.className === cls)).length;
+      counts[cls] = allFlattenedRows.filter((r) => r.className === cls && !r.isClear).length;
     });
     return counts;
-  }, [records, availableClasses]);
+  }, [availableClasses, allFlattenedRows]);
 
-  // Calculate counts for course options
   const courseCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     availableCourses.forEach((crs) => {
-      counts[crs] = records.filter((t) => t.assignedCourses.some((c) => c.courseName === crs)).length;
+      counts[crs] = allFlattenedRows.filter((r) => r.courseName === crs && !r.isClear).length;
     });
     return counts;
-  }, [records, availableCourses]);
+  }, [availableCourses, allFlattenedRows]);
 
-  // Main Filtering Logic
-  const filteredRecords = useMemo(() => {
-    return records.filter((r) => {
-      const courseNames = r.assignedCourses.map((c) => `${c.courseName} ${c.className}`).join(' ');
-      const ungradedTaskNames = r.ungradedTasksList.map((t) => t.courseWorkTitle).join(' ');
+  // 2. Filter rows
+  const filteredRows = useMemo(() => {
+    return allFlattenedRows.filter((row) => {
+      // Status Filter
+      if (statusFilter === 'PENDING_ONLY' && row.isClear) return false;
+      if (statusFilter === 'CLEAR_ONLY' && !row.isClear) return false;
 
-      // 1. Text Search
-      const matchesSearch =
-        searchTerm === '' ||
-        r.teacherName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.teacherEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        courseNames.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ungradedTaskNames.toLowerCase().includes(searchTerm.toLowerCase());
-
-      if (!matchesSearch) return false;
-
-      // 2. Class Filter (if any selected)
-      if (selectedClasses.length > 0) {
-        const teachesSelectedClass = r.assignedCourses.some((c) =>
-          selectedClasses.includes(c.className)
-        );
-        if (!teachesSelectedClass) return false;
+      // Teacher Filter
+      if (selectedTeachers.length > 0 && !selectedTeachers.includes(row.teacherName)) {
+        return false;
       }
 
-      // 3. Course Filter (if any selected)
-      if (selectedCourses.length > 0) {
-        const teachesSelectedCourse = r.assignedCourses.some((c) =>
-          selectedCourses.includes(c.courseName)
-        );
-        if (!teachesSelectedCourse) return false;
+      // Class Filter
+      if (selectedClasses.length > 0 && !selectedClasses.includes(row.className)) {
+        return false;
       }
 
-      // 4. Status Filter
-      if (statusFilter === 'NEED_GRADING' && r.isClear) return false;
-      if (statusFilter === 'CLEAR' && !r.isClear) return false;
+      // Course Filter
+      if (selectedCourses.length > 0 && !selectedCourses.includes(row.courseName)) {
+        return false;
+      }
 
-      // 5. Workload Filter
-      const ungradedCount = r.totalUngradedSubmissions || 0;
-      if (workloadFilter === 'HEAVY' && ungradedCount <= 15) return false;
-      if (workloadFilter === 'MEDIUM' && (ungradedCount === 0 || ungradedCount > 15)) return false;
-      if (workloadFilter === 'ZERO' && ungradedCount > 0) return false;
+      // Student Count / Workload Filter
+      if (studentCountFilter === 'HIGH' && row.ungradedCount < 10) return false;
+      if (studentCountFilter === 'MEDIUM' && (row.ungradedCount < 5 || row.ungradedCount >= 10)) return false;
+      if (studentCountFilter === 'LOW' && (row.ungradedCount < 1 || row.ungradedCount >= 5)) return false;
+
+      // Text Search: nama guru, kelas, mata pelajaran, tugas belum dinilai, atau nama siswa
+      if (searchTerm.trim() !== '') {
+        const term = searchTerm.toLowerCase();
+        const studentNames = row.ungradedStudents.map((s) => s.studentName).join(' ').toLowerCase();
+        const matches =
+          row.teacherName.toLowerCase().includes(term) ||
+          row.teacherEmail.toLowerCase().includes(term) ||
+          row.className.toLowerCase().includes(term) ||
+          row.courseName.toLowerCase().includes(term) ||
+          row.courseWorkTitle.toLowerCase().includes(term) ||
+          studentNames.includes(term);
+
+        if (!matches) return false;
+      }
 
       return true;
     });
-  }, [records, searchTerm, selectedClasses, selectedCourses, statusFilter, workloadFilter]);
+  }, [
+    allFlattenedRows,
+    statusFilter,
+    selectedTeachers,
+    selectedClasses,
+    selectedCourses,
+    studentCountFilter,
+    searchTerm,
+  ]);
 
-  // KPI calculations on filtered records
-  const kpiStats = useMemo(() => {
-    const totalTeachers = filteredRecords.length;
-    const needGrading = filteredRecords.filter((r) => !r.isClear).length;
-    const clear = filteredRecords.filter((r) => r.isClear).length;
-    const totalUngradedSubmissions = filteredRecords.reduce(
-      (acc, r) => acc + (r.totalUngradedSubmissions || 0),
-      0
-    );
-    return { totalTeachers, needGrading, clear, totalUngradedSubmissions };
-  }, [filteredRecords]);
+  // Stats on filtered rows
+  const stats = useMemo(() => {
+    const pendingTasksCount = filteredRows.filter((r) => !r.isClear).length;
+    const totalUngradedSubmissions = filteredRows.reduce((acc, r) => acc + (r.ungradedCount || 0), 0);
+    const uniqueTeachers = new Set(filteredRows.filter((r) => !r.isClear).map((r) => r.teacherId)).size;
+    const uniqueClasses = new Set(filteredRows.filter((r) => !r.isClear && r.className !== '-').map((r) => r.className)).size;
+
+    return {
+      pendingTasksCount,
+      totalUngradedSubmissions,
+      uniqueTeachers,
+      uniqueClasses,
+    };
+  }, [filteredRows]);
 
   const hasActiveFilters =
     searchTerm !== '' ||
+    selectedTeachers.length > 0 ||
     selectedClasses.length > 0 ||
     selectedCourses.length > 0 ||
-    statusFilter !== 'ALL' ||
-    workloadFilter !== 'ALL';
+    statusFilter !== 'PENDING_ONLY' ||
+    studentCountFilter !== 'ALL';
 
   const handleResetFilters = () => {
     setSearchTerm('');
+    setSelectedTeachers([]);
     setSelectedClasses([]);
     setSelectedCourses([]);
-    setStatusFilter('ALL');
-    setWorkloadFilter('ALL');
+    setStatusFilter('PENDING_ONLY');
+    setStudentCountFilter('ALL');
     setCurrentPage(1);
   };
 
-  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage) || 1;
-  const paginatedRecords = useMemo(() => {
+  // Pagination
+  const totalPages = Math.ceil(filteredRows.length / itemsPerPage) || 1;
+  const paginatedRows = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredRecords.slice(start, start + itemsPerPage);
-  }, [filteredRecords, currentPage, itemsPerPage]);
+    return filteredRows.slice(start, start + itemsPerPage);
+  }, [filteredRows, currentPage, itemsPerPage]);
 
   const handleExportPDF = () => {
-    if (filteredRecords.length === 0) return;
-    exportTeachersToPDF(filteredRecords);
+    if (records.length === 0) return;
+    exportTeachersToPDF(records);
+  };
+
+  const toggleExpandStudents = (rowId: string) => {
+    setExpandedStudentsRowId((prev) => (prev === rowId ? null : rowId));
   };
 
   return (
-    <div id="teacher-clearance-container" className="space-y-4">
-      {/* KPI Stats Strip for Teacher Grading Hub */}
+    <div id="teacher-clearance-hub" className="space-y-4">
+      {/* KPI Cards Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white border border-amber-200/80 rounded-2xl p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Guru</span>
-            <Users className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-xl font-black text-slate-900 mt-1">
-            {kpiStats.totalTeachers} <span className="text-xs font-normal text-slate-400">Guru</span>
-          </div>
-        </div>
-
         <div className="bg-white border border-rose-200 rounded-2xl p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Ada Antrean Grading</span>
+            <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Tugas Belum Dinilai</span>
             <Clock className="w-4 h-4 text-rose-500" />
           </div>
           <div className="text-xl font-black text-rose-700 mt-1">
-            {kpiStats.needGrading} <span className="text-xs font-normal text-rose-400">Guru</span>
+            {stats.pendingTasksCount} <span className="text-xs font-normal text-rose-400">Tugas</span>
           </div>
-        </div>
-
-        <div className="bg-white border border-emerald-200 rounded-2xl p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Grading Tuntas</span>
-            <CheckCircle className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div className="text-xl font-black text-emerald-700 mt-1">
-            {kpiStats.clear} <span className="text-xs font-normal text-emerald-500">Guru</span>
+          <div className="text-[11px] text-rose-600 font-medium mt-0.5">
+            Satu baris per satu tugas
           </div>
         </div>
 
         <div className="bg-white border border-amber-300 rounded-2xl p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Total Tugas Belum Dinilai</span>
-            <BookOpen className="w-4 h-4 text-amber-600" />
+            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Total Antrean Siswa</span>
+            <Users className="w-4 h-4 text-amber-600" />
           </div>
           <div className="text-xl font-black text-amber-900 mt-1">
-            {kpiStats.totalUngradedSubmissions} <span className="text-xs font-normal text-amber-700">Pengumpulan</span>
+            {stats.totalUngradedSubmissions} <span className="text-xs font-normal text-amber-700">Submisi</span>
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+            Menunggu penilaian guru
+          </div>
+        </div>
+
+        <div className="bg-white border border-blue-200 rounded-2xl p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Guru Terlibat</span>
+            <GraduationCap className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="text-xl font-black text-blue-900 mt-1">
+            {stats.uniqueTeachers} <span className="text-xs font-normal text-blue-500">Guru</span>
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+            Dari {availableTeachers.length} guru terdaftar
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Kelas Terdata</span>
+            <BookOpen className="w-4 h-4 text-slate-500" />
+          </div>
+          <div className="text-xl font-black text-slate-900 mt-1">
+            {stats.uniqueClasses} <span className="text-xs font-normal text-slate-400">Kelas</span>
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+            {availableCourses.length} Mata Pelajaran
           </div>
         </div>
       </div>
 
-      {/* Controls & Filter Card */}
+      {/* Bento Controls Card with Maybank theme */}
       <div className="bg-white border border-amber-200/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5">
         {/* Row 1: Search & Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
@@ -221,7 +348,7 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
             <input
               id="teacher-search-input"
               type="text"
-              placeholder="Cari nama guru, email, mata pelajaran, kelas, atau judul tugas..."
+              placeholder="Cari nama guru, kelas, mata pelajaran, atau judul tugas..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -231,6 +358,7 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
             />
             {searchTerm && (
               <button
+                type="button"
                 onClick={() => setSearchTerm('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
               >
@@ -243,8 +371,9 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
           <div className="flex items-center space-x-2 shrink-0">
             <button
               id="btn-export-teacher-pdf"
+              type="button"
               onClick={handleExportPDF}
-              disabled={filteredRecords.length === 0}
+              disabled={filteredRows.length === 0}
               className="inline-flex items-center justify-center space-x-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border border-slate-800"
               title="Unduh Laporan PDF Guru"
             >
@@ -254,17 +383,33 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
           </div>
         </div>
 
-        {/* Row 2: Filters Grid (Class, Subject, Status, Workload, Reset) */}
+        {/* Row 2: Comprehensive Filters */}
         <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2.5">
           <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-600 mr-1">
             <Filter className="w-3.5 h-3.5 text-amber-600" />
             <span>Filter:</span>
           </div>
 
-          {/* 1. Multi-Select Class Filter */}
+          {/* 1. Filter Guru */}
+          {availableTeachers.length > 0 && (
+            <ExcelMultiSelectFilter
+              id="filter-teacher-name"
+              label="Guru"
+              options={availableTeachers}
+              selectedValues={selectedTeachers}
+              onChange={(selected) => {
+                setSelectedTeachers(selected);
+                setCurrentPage(1);
+              }}
+              counts={teacherCounts}
+              placeholder="Cari guru..."
+            />
+          )}
+
+          {/* 2. Filter Kelas */}
           {availableClasses.length > 0 && (
             <ExcelMultiSelectFilter
-              id="teacher-filter-class"
+              id="filter-teacher-class"
               label="Kelas"
               options={availableClasses}
               selectedValues={selectedClasses}
@@ -277,10 +422,10 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
             />
           )}
 
-          {/* 2. Multi-Select Course/Subject Filter */}
+          {/* 3. Filter Mata Pelajaran */}
           {availableCourses.length > 0 && (
             <ExcelMultiSelectFilter
-              id="teacher-filter-course"
+              id="filter-teacher-course"
               label="Mata Pelajaran"
               options={availableCourses}
               selectedValues={selectedCourses}
@@ -289,14 +434,14 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
                 setCurrentPage(1);
               }}
               counts={courseCounts}
-              placeholder="Cari mata pelajaran..."
+              placeholder="Cari mapel..."
             />
           )}
 
-          {/* 3. Status Grading Filter */}
+          {/* 4. Filter Status Tampilan */}
           <div className="relative">
             <select
-              id="filter-teacher-status"
+              id="filter-task-status"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value as any);
@@ -304,27 +449,27 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
               }}
               className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-semibold focus:outline-none focus:border-amber-500 focus:bg-white cursor-pointer transition-colors"
             >
-              <option value="ALL">Semua Status Grading ({records.length})</option>
-              <option value="NEED_GRADING">Ada Tugas Belum Dinilai ({records.filter((r) => !r.isClear).length})</option>
-              <option value="CLEAR">Tuntas Clear ({records.filter((r) => r.isClear).length})</option>
+              <option value="PENDING_ONLY">Hanya Tugas Belum Dinilai ({allFlattenedRows.filter((r) => !r.isClear).length})</option>
+              <option value="ALL">Semua Baris (Termasuk Tuntas)</option>
+              <option value="CLEAR_ONLY">Guru Tuntas Saja ({allFlattenedRows.filter((r) => r.isClear).length})</option>
             </select>
           </div>
 
-          {/* 4. Workload / Antrean Grading Filter */}
+          {/* 5. Filter Jumlah Siswa Menunggu */}
           <div className="relative">
             <select
-              id="filter-teacher-workload"
-              value={workloadFilter}
+              id="filter-student-count"
+              value={studentCountFilter}
               onChange={(e) => {
-                setWorkloadFilter(e.target.value as any);
+                setStudentCountFilter(e.target.value as any);
                 setCurrentPage(1);
               }}
               className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-semibold focus:outline-none focus:border-amber-500 focus:bg-white cursor-pointer transition-colors"
             >
-              <option value="ALL">Semua Beban Antrean</option>
-              <option value="HEAVY">Antrean Tinggi (&gt; 15 tugas)</option>
-              <option value="MEDIUM">Antrean Ringan/Sedang (1 - 15)</option>
-              <option value="ZERO">0 Antrean (Tuntas)</option>
+              <option value="ALL">Semua Jumlah Siswa</option>
+              <option value="HIGH">Banyak (≥ 10 Siswa Menunggu)</option>
+              <option value="MEDIUM">Sedang (5 - 9 Siswa)</option>
+              <option value="LOW">Sedikit (1 - 4 Siswa)</option>
             </select>
           </div>
 
@@ -342,7 +487,7 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
           )}
         </div>
 
-        {/* Active Filters Pill Chips */}
+        {/* Active Filter Chips */}
         {hasActiveFilters && (
           <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
             <span className="text-[11px] font-bold text-slate-400">Filter Aktif:</span>
@@ -354,6 +499,19 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
                   type="button"
                   onClick={() => setSearchTerm('')}
                   className="hover:text-rose-600 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {selectedTeachers.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 font-semibold text-[11px] border border-purple-300">
+                <span>Guru: {selectedTeachers.join(', ')}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTeachers([])}
+                  className="hover:text-rose-700 cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -386,12 +544,12 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
               </span>
             )}
 
-            {statusFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-900 font-semibold text-[11px] border border-rose-300">
-                <span>Status: {statusFilter === 'NEED_GRADING' ? 'Ada Tugas Belum Dinilai' : 'Tuntas Clear'}</span>
+            {statusFilter !== 'PENDING_ONLY' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-semibold text-[11px] border border-emerald-300">
+                <span>Tampilan: {statusFilter === 'CLEAR_ONLY' ? 'Guru Tuntas Saja' : 'Semua Termasuk Tuntas'}</span>
                 <button
                   type="button"
-                  onClick={() => setStatusFilter('ALL')}
+                  onClick={() => setStatusFilter('PENDING_ONLY')}
                   className="hover:text-rose-700 cursor-pointer"
                 >
                   <X className="w-3 h-3" />
@@ -399,19 +557,19 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
               </span>
             )}
 
-            {workloadFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 font-semibold text-[11px] border border-purple-300">
+            {studentCountFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-900 font-semibold text-[11px] border border-rose-300">
                 <span>
-                  Beban:{' '}
-                  {workloadFilter === 'HEAVY'
-                    ? '> 15 tugas'
-                    : workloadFilter === 'MEDIUM'
-                    ? '1 - 15 tugas'
-                    : '0 Antrean'}
+                  Siswa:{' '}
+                  {studentCountFilter === 'HIGH'
+                    ? '≥ 10 Siswa'
+                    : studentCountFilter === 'MEDIUM'
+                    ? '5 - 9 Siswa'
+                    : '1 - 4 Siswa'}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setWorkloadFilter('ALL')}
+                  onClick={() => setStudentCountFilter('ALL')}
                   className="hover:text-rose-700 cursor-pointer"
                 >
                   <X className="w-3 h-3" />
@@ -422,48 +580,50 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
         )}
       </div>
 
-      {/* Main Table Card (Upper Left Aligned) */}
+      {/* Main Table Card (Exact 4 Columns in Requested Order) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
         {/* Table Header */}
         <div className="p-4 border-b border-amber-100 bg-amber-50/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div>
-            <h2 className="font-bold text-slate-800 text-sm">Daftar Grading Guru (Teacher Grading Hub)</h2>
+            <h2 className="font-bold text-slate-800 text-sm">Daftar Grading Guru (1 Baris per Tugas)</h2>
             <p className="text-[11px] text-slate-500">
-              Monitoring antrean penilaian tugas siswa berdasarkan guru pengampu mata pelajaran
+              Format baris per tugas: Nama Guru • Kelas • Mata Pelajaran • Tugas Belum Dinilai
             </p>
           </div>
-          <span className="text-xs font-bold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">
-            Menampilkan {paginatedRecords.length} dari {filteredRecords.length} guru
-          </span>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">
+              Menampilkan {paginatedRows.length} dari {filteredRows.length} baris tugas
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
-            <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] tracking-widest border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-700 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 text-left align-top">Nama Guru</th>
-                <th className="px-4 py-3 text-left align-top">Mata Pelajaran &amp; Kelas</th>
-                <th className="px-4 py-3 text-left align-top">Tugas Belum Dinilai</th>
-                <th className="px-4 py-3 text-left align-top">Jumlah Siswa Belum Dinilai</th>
-                <th className="px-4 py-3 text-left align-top">Status Grading</th>
-                <th className="px-4 py-3 text-left align-top">Aksi</th>
+                <th className="px-4 py-3.5 text-left align-top w-[24%]">Nama Guru</th>
+                <th className="px-4 py-3.5 text-left align-top w-[14%]">Kelas</th>
+                <th className="px-4 py-3.5 text-left align-top w-[22%]">Mata Pelajaran</th>
+                <th className="px-4 py-3.5 text-left align-top w-[40%]">Tugas Belum Dinilai</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
-              {paginatedRecords.length === 0 ? (
+              {paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={4} className="py-14 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center space-y-2">
-                      <CheckCircle className="w-8 h-8 text-emerald-500" />
-                      <span className="text-sm font-bold text-slate-700">Tidak ada data guru yang cocok</span>
-                      <span className="text-xs text-slate-400">
-                        Coba sesuaikan filter pencarian, kelas, mata pelajaran, atau status grading
+                      <CheckCircle className="w-9 h-9 text-emerald-500" />
+                      <span className="text-sm font-bold text-slate-800">
+                        Tidak ada tugas belum dinilai yang cocok
+                      </span>
+                      <span className="text-xs text-slate-400 max-w-md">
+                        Semua tugas mungkin telah dinilai atau coba sesuaikan filter pencarian, kelas, dan mata pelajaran di atas.
                       </span>
                       {hasActiveFilters && (
                         <button
                           type="button"
                           onClick={handleResetFilters}
-                          className="mt-2 inline-flex items-center space-x-1 px-3 py-1 bg-amber-100 text-amber-900 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors"
+                          className="mt-2 inline-flex items-center space-x-1 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           <span>Reset Semua Filter</span>
@@ -473,126 +633,178 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
                   </td>
                 </tr>
               ) : (
-                paginatedRecords.map((teacher) => {
-                  const ungradedCount = teacher.totalUngradedSubmissions || 0;
+                paginatedRows.map((row) => {
+                  const isExpanded = expandedStudentsRowId === row.rowId;
+
                   return (
                     <tr
-                      key={teacher.teacherId}
-                      className="hover:bg-amber-50/30 transition-colors cursor-pointer group"
-                      onClick={() => onSelectTeacherRecord(teacher)}
+                      key={row.rowId}
+                      className={`hover:bg-amber-50/20 transition-colors ${
+                        row.isClear ? 'bg-emerald-50/20' : ''
+                      }`}
                     >
-                      {/* 1. Nama Guru (Upper Left Aligned) */}
+                      {/* 1. NAMA GURU */}
                       <td className="px-4 py-3.5 align-top text-left">
                         <div className="flex items-start space-x-2.5">
-                          {teacher.teacherPhoto ? (
+                          {row.teacherPhoto ? (
                             <img
-                              src={teacher.teacherPhoto}
-                              alt={teacher.teacherName}
+                              src={row.teacherPhoto}
+                              alt={row.teacherName}
                               className="w-7 h-7 rounded-full border border-amber-300 object-cover shrink-0 mt-0.5"
                               referrerPolicy="no-referrer"
                             />
                           ) : (
                             <div className="w-7 h-7 rounded-full bg-amber-100 text-slate-900 font-bold flex items-center justify-center text-xs border border-amber-300 shrink-0 mt-0.5">
-                              {teacher.teacherName.charAt(0)}
+                              {row.teacherName.charAt(0)}
                             </div>
                           )}
                           <div className="min-w-0">
-                            <div className="font-bold text-slate-900 group-hover:text-amber-800 transition-colors">
-                              {teacher.teacherName}
-                            </div>
-                            {teacher.teacherEmail && (
-                              <div className="text-[11px] text-slate-400 truncate max-w-[170px]">
-                                {teacher.teacherEmail}
+                            <button
+                              type="button"
+                              onClick={() => onSelectTeacherRecord(row.parentRecord)}
+                              className="text-left font-bold text-slate-900 hover:text-amber-800 transition-colors cursor-pointer block truncate"
+                              title="Klik untuk melihat seluruh riwayat penilaian guru ini"
+                            >
+                              {row.teacherName}
+                            </button>
+                            {row.teacherEmail && (
+                              <div className="text-[11px] text-slate-400 truncate max-w-[200px]">
+                                {row.teacherEmail}
                               </div>
                             )}
                           </div>
                         </div>
                       </td>
 
-                      {/* 2. Mata Pelajaran & Kelas Diampu (Upper Left Aligned) */}
+                      {/* 2. KELAS */}
                       <td className="px-4 py-3.5 align-top text-left">
-                        <div className="space-y-1">
-                          {teacher.assignedCourses.slice(0, 3).map((c, i) => (
-                            <div key={i} className="flex items-center space-x-1 text-slate-700">
-                              <BookOpen className="w-3 h-3 text-amber-600 shrink-0" />
-                              <span className="font-medium truncate max-w-[200px]">{c.courseName}</span>
-                              <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                {c.className}
-                              </span>
-                            </div>
-                          ))}
-                          {teacher.assignedCourses.length > 3 && (
-                            <div className="text-[10px] font-bold text-slate-400">
-                              +{teacher.assignedCourses.length - 3} kelas lainnya
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* 3. Tugas Belum Dinilai (Upper Left Aligned) */}
-                      <td className="px-4 py-3.5 align-top text-left">
-                        {teacher.ungradedTasksList.length === 0 ? (
-                          <div className="text-emerald-600 font-bold flex items-center space-x-1">
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            <span>Semua Tugas Dinilai</span>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            {teacher.ungradedTasksList.slice(0, 2).map((t, idx) => (
-                              <div key={idx} className="text-slate-800 font-medium">
-                                <span className="text-rose-500 font-bold">• </span>
-                                {t.courseWorkTitle}
-                              </div>
-                            ))}
-                            {teacher.ungradedTasksList.length > 2 && (
-                              <div className="text-[10px] text-slate-400 font-bold">
-                                +{teacher.ungradedTasksList.length - 2} tugas lainnya
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* 4. Jumlah Siswa Belum Dinilai (Upper Left Aligned) */}
-                      <td className="px-4 py-3.5 align-top text-left whitespace-nowrap">
-                        {ungradedCount > 0 ? (
-                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-black bg-rose-50 text-rose-700 border border-rose-200">
-                            <Clock className="w-3 h-3 text-rose-500" />
-                            <span>{ungradedCount} Pengumpulan</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle className="w-3 h-3 text-emerald-600" />
-                            <span>0 Belum Dinilai</span>
-                          </span>
-                        )}
-                      </td>
-
-                      {/* 5. Status Grading (Upper Left Aligned) */}
-                      <td className="px-4 py-3.5 align-top text-left whitespace-nowrap">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                            teacher.isClear
-                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                              : 'bg-rose-100 text-rose-700 border border-rose-200'
-                          }`}
-                        >
-                          {teacher.isClear ? 'CLEAR (SELESAI)' : 'PERLU GRADING'}
+                        <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-extrabold bg-slate-100 text-slate-800 border border-slate-200">
+                          {row.className}
                         </span>
                       </td>
 
-                      {/* 6. Aksi */}
-                      <td className="px-4 py-3.5 align-top text-left whitespace-nowrap">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectTeacherRecord(teacher);
-                          }}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-amber-300 rounded-lg text-xs font-bold border border-slate-800 transition-colors cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-[#FFC800]" />
-                          <span>Rincian</span>
-                        </button>
+                      {/* 3. MATA PELAJARAN */}
+                      <td className="px-4 py-3.5 align-top text-left">
+                        <div className="flex items-start space-x-1.5">
+                          <BookOpen className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <span className="font-bold text-slate-800 block">
+                              {row.courseName}
+                            </span>
+                            {row.courseLink && (
+                              <a
+                                href={row.courseLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center space-x-0.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-0.5"
+                              >
+                                <span>Buka Kelas</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 4. TUGAS BELUM DINILAI */}
+                      <td className="px-4 py-3.5 align-top text-left">
+                        {row.isClear ? (
+                          <div className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Semua Tugas Sudah Dinilai (Clear)</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {/* Task title & Direct link to Classroom */}
+                            <div className="flex flex-wrap items-start justify-between gap-1.5">
+                              <div className="font-bold text-slate-900 text-xs sm:text-[13px] leading-snug">
+                                {row.courseWorkTitle}
+                              </div>
+
+                              {row.courseWorkLink && (
+                                <a
+                                  href={row.courseWorkLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center space-x-1 px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-md text-[11px] font-bold border border-amber-300 transition-colors shrink-0"
+                                  title="Buka tugas ini langsung di Google Classroom untuk menilai siswa"
+                                >
+                                  <span>Nilai di Classroom</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Task Meta (Deadline + Waiting Submissions Count Badge) */}
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md font-extrabold text-[11px] bg-rose-50 text-rose-700 border border-rose-200">
+                                <Clock className="w-3 h-3 text-rose-500" />
+                                <span>{row.ungradedCount} Siswa Belum Dinilai</span>
+                              </span>
+
+                              {row.dueDateStr && (
+                                <span className="inline-flex items-center space-x-1 text-[11px] text-slate-500">
+                                  <Calendar className="w-3 h-3 text-slate-400" />
+                                  <span>Batas: {row.dueDateStr}</span>
+                                </span>
+                              )}
+
+                              {/* Interactive Button to View List of Students */}
+                              {row.ungradedStudents.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandStudents(row.rowId)}
+                                  className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                                >
+                                  <span>{isExpanded ? 'Tutup Daftar Siswa' : 'Lihat Nama Siswa'}</span>
+                                  {isExpanded ? (
+                                    <ChevronUp className="w-3 h-3" />
+                                  ) : (
+                                    <ChevronDown className="w-3 h-3" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Expanded Students List */}
+                            {isExpanded && row.ungradedStudents.length > 0 && (
+                              <div className="mt-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                                <div className="text-[11px] font-bold text-slate-600 flex items-center justify-between">
+                                  <span>Siswa yang menyerahkan &amp; menunggu nilai:</span>
+                                  <span className="text-slate-400">{row.ungradedStudents.length} siswa</span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                                  {row.ungradedStudents.map((student) => (
+                                    <div
+                                      key={student.studentId}
+                                      className="flex items-center justify-between px-2 py-1 bg-white border border-slate-200 rounded-lg text-[11px]"
+                                    >
+                                      <div className="truncate mr-1">
+                                        <span className="font-bold text-slate-800">{student.studentName}</span>
+                                        {student.studentEmail && (
+                                          <span className="text-slate-400 text-[10px] block truncate">
+                                            {student.studentEmail}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {student.submissionLink && (
+                                        <a
+                                          href={student.submissionLink}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-blue-600 hover:text-blue-800 font-bold shrink-0 text-[10px] inline-flex items-center space-x-0.5"
+                                        >
+                                          <span>Nilai</span>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -602,15 +814,36 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
           </table>
         </div>
 
-        {/* Table Footer */}
-        {filteredRecords.length > 0 && (
-          <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <div>
-              Menampilkan {Math.min(filteredRecords.length, (currentPage - 1) * itemsPerPage + 1)} -{' '}
-              {Math.min(filteredRecords.length, currentPage * itemsPerPage)} dari {filteredRecords.length} guru
+        {/* Table Footer with Pagination */}
+        {filteredRows.length > 0 && (
+          <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            <div className="flex items-center space-x-2">
+              <span>
+                Menampilkan {Math.min(filteredRows.length, (currentPage - 1) * itemsPerPage + 1)} -{' '}
+                {Math.min(filteredRows.length, currentPage * itemsPerPage)} dari {filteredRows.length} baris tugas
+              </span>
+              <span className="text-slate-300">|</span>
+              <label className="flex items-center space-x-1">
+                <span>Per halaman:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-white border border-slate-200 rounded-md px-1.5 py-0.5 text-xs font-semibold text-slate-700 cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
             </div>
+
             <div className="flex items-center space-x-1.5">
               <button
+                type="button"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="px-3 py-1 rounded-lg bg-white hover:bg-amber-50 disabled:opacity-40 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs cursor-pointer"
@@ -621,6 +854,7 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
                 {currentPage} / {totalPages}
               </span>
               <button
+                type="button"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
                 className="px-3 py-1 rounded-lg bg-white hover:bg-amber-50 disabled:opacity-40 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs cursor-pointer"
