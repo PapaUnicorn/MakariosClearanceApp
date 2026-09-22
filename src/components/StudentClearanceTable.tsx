@@ -17,6 +17,7 @@ import { StudentClearanceRecord, TaskStatusType, getTaskStatusInfo } from '../ty
 import { exportStudentsToPDF, exportStudentMonthlyProgressReportPDF } from '../utils/pdfExport';
 import { exportStudentMonthlyReportDocx } from '../utils/docxExport';
 import { StudentMonthlyReportModal } from './StudentMonthlyReportModal';
+import { MonthlyReport } from './MonthlyReport';
 import { ExcelMultiSelectFilter } from './ExcelMultiSelectFilter';
 
 interface StudentClearanceTableProps {
@@ -92,6 +93,9 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
     className: '',
     studentRecords: [],
   });
+
+  // State for whole-school / all students Monthly Clearance Report (A4 Print Preview)
+  const [isAllStudentsMonthlyReportOpen, setIsAllStudentsMonthlyReportOpen] = useState(false);
 
   // Unique list of students for single user selection dropdown
   const uniqueStudents = useMemo(() => {
@@ -582,8 +586,18 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
             )}
           </div>
 
-          {/* Export Rekapitulasi PDF */}
+          {/* Export Rekapitulasi PDF & Laporan Bulanan A4 */}
           <div className="flex items-center space-x-2">
+            <button
+              id="btn-open-monthly-report"
+              onClick={() => setIsAllStudentsMonthlyReportOpen(true)}
+              className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border border-amber-400"
+              title="Buka Laporan Bulanan Seluruh Siswa & Cetak A4"
+            >
+              <Printer className="w-4 h-4 text-slate-950" />
+              <span>Laporan Bulanan (A4)</span>
+            </button>
+
             <button
               id="btn-export-student-pdf"
               onClick={handleExportAllPDF}
@@ -1339,7 +1353,7 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
         )}
       </div>
 
-      {/* Monthly Report Preview Modal */}
+      {/* Monthly Report Preview Modal (Single Student) */}
       {reportModal.isOpen && (
         <StudentMonthlyReportModal
           studentName={reportModal.studentName}
@@ -1356,6 +1370,17 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
               studentRecords: [],
             })
           }
+        />
+      )}
+
+      {/* Whole-School / Aggregated All Students Monthly Report (A4 Print Preview) */}
+      {isAllStudentsMonthlyReportOpen && (
+        <MonthlyReport
+          isOpen={isAllStudentsMonthlyReportOpen}
+          onClose={() => setIsAllStudentsMonthlyReportOpen(false)}
+          records={records}
+          initialYear={selectedMonth !== 'ALL' ? parseInt(selectedMonth.split('-')[0], 10) : undefined}
+          initialMonth={selectedMonth !== 'ALL' ? parseInt(selectedMonth.split('-')[1], 10) : undefined}
         />
       )}
     </div>

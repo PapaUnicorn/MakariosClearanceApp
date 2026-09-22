@@ -86,9 +86,13 @@
   }
 
   /* Signature & Footer: Keep together */
-  .report-footer-signature {
+  .report-footer-signature,
+  .page-break-avoid {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  .report-footer-signature {
     margin-top: 20px !important;
   }
 }

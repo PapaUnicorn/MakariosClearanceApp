@@ -30,6 +30,9 @@ provider.addScope('https://www.googleapis.com/auth/classroom.student-submissions
 provider.addScope('https://www.googleapis.com/auth/classroom.profile.emails');
 provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
 provider.addScope('https://www.googleapis.com/auth/userinfo.email');
+// Google Sheets Database & Drive Scopes
+provider.addScope('https://www.googleapis.com/auth/spreadsheets');
+provider.addScope('https://www.googleapis.com/auth/drive.file');
 
 // Force prompt for accounts / consent if needed
 provider.setCustomParameters({

@@ -21,7 +21,15 @@ import { TeacherClearanceTable } from './components/TeacherClearanceTable';
 import { SummaryStats } from './components/SummaryStats';
 import { StudentDetailModal } from './components/StudentDetailModal';
 import { TeacherDetailModal } from './components/TeacherDetailModal';
-import { AlertCircle, RefreshCw, GraduationCap } from 'lucide-react';
+import { GoogleSheetsDatabaseModal } from './components/GoogleSheetsDatabaseModal';
+import { GoogleSheetsSyncConfirmModal } from './components/GoogleSheetsSyncConfirmModal';
+import {
+  GoogleSheetDatabaseMeta,
+  getSavedDatabaseMeta,
+  syncRecordsToGoogleSheets,
+  loadRecordsFromGoogleSheets,
+} from './services/googleSheetsDatabase';
+import { AlertCircle, RefreshCw, GraduationCap, Table, CheckCircle2, ArrowUpRight } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -36,6 +44,14 @@ export default function App() {
   const [teacherRecords, setTeacherRecords] = useState<TeacherClearanceRecord[]>([]);
   const [teacherSummaryRecords, setTeacherSummaryRecords] = useState<TeacherSummaryRecord[]>([]);
   const [courses, setCourses] = useState<ClassroomCourse[]>([]);
+
+  // Google Sheets Database State
+  const [databaseMeta, setDatabaseMeta] = useState<GoogleSheetDatabaseMeta | null>(() => getSavedDatabaseMeta());
+  const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false);
+  const [isSyncConfirmModalOpen, setIsSyncConfirmModalOpen] = useState(false);
+  const [isSyncingToSheets, setIsSyncingToSheets] = useState(false);
+  const [isLoadingFromSheets, setIsLoadingFromSheets] = useState(false);
+  const [sheetsToast, setSheetsToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Navigation & Modals
   const [activeTab, setActiveTab] = useState<'students' | 'teachers' | 'stats'>('students');
@@ -145,6 +161,70 @@ export default function App() {
     setSelectedTeacherRecord(null);
   };
 
+  // Google Sheets Database Handlers
+  const totalTasksCount = studentRecords.reduce((acc, r) => acc + (r.allTasks?.length || 0), 0);
+
+  const handleSyncToSheetsConfirm = async () => {
+    if (!databaseMeta) return;
+    setIsSyncingToSheets(true);
+    setSheetsToast(null);
+    try {
+      const updatedMeta = await syncRecordsToGoogleSheets(
+        databaseMeta.spreadsheetId,
+        studentRecords,
+        teacherSummaryRecords
+      );
+      setDatabaseMeta(updatedMeta);
+      setIsSyncConfirmModalOpen(false);
+      setSheetsToast({
+        message: `Berhasil menyinkronkan data (${studentRecords.length} siswa, ${totalTasksCount} tugas, ${teacherSummaryRecords.length} guru) ke Google Sheets!`,
+        type: 'success',
+      });
+      setTimeout(() => setSheetsToast(null), 7000);
+    } catch (err: any) {
+      console.error('Failed to sync to Google Sheets:', err);
+      setSheetsToast({
+        message: err.message || 'Gagal menyimpan ke Google Sheets database.',
+        type: 'error',
+      });
+    } finally {
+      setIsSyncingToSheets(false);
+    }
+  };
+
+  const handleLoadFromSheets = async () => {
+    if (!databaseMeta) return;
+    setIsLoadingFromSheets(true);
+    setSheetsToast(null);
+    try {
+      const data = await loadRecordsFromGoogleSheets(databaseMeta.spreadsheetId);
+      if (data.studentRecords.length === 0) {
+        throw new Error('Tidak ada data siswa ditemukan di spreadsheet database ini.');
+      }
+      setStudentRecords(data.studentRecords);
+      if (data.teacherRecords.length > 0) {
+        setTeacherSummaryRecords(data.teacherRecords);
+      }
+      if (data.lastSyncedAt) {
+        setLastSyncTime(`Database Sheets: ${data.lastSyncedAt}`);
+      }
+      setIsDatabaseModalOpen(false);
+      setSheetsToast({
+        message: `Berhasil memuat ${data.studentRecords.length} data siswa langsung dari Google Sheets!`,
+        type: 'success',
+      });
+      setTimeout(() => setSheetsToast(null), 7000);
+    } catch (err: any) {
+      console.error('Failed to load from Google Sheets:', err);
+      setSheetsToast({
+        message: err.message || 'Gagal membaca data dari Google Sheets.',
+        type: 'error',
+      });
+    } finally {
+      setIsLoadingFromSheets(false);
+    }
+  };
+
   // Handle Refresh Data
   const handleRefresh = () => {
     if (token) {
@@ -179,29 +259,127 @@ export default function App() {
         isSyncing={syncProgress.isSyncing}
         totalStudentsCount={studentRecords.length}
         totalTeachersCount={teacherSummaryRecords.length}
+        databaseMeta={databaseMeta}
+        onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
-        {/* Bento Top Banner (Google Classroom Sync Bar) with Maybank Theme */}
-        {!syncProgress.isSyncing && courses.length > 0 && (
-          <div className="mb-5 bg-slate-900 border border-amber-400/40 rounded-2xl p-4 sm:p-5 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#FFC800] animate-pulse" />
-                <p className="text-xs font-medium text-amber-200">Tersinkronisasi dengan Google Classroom</p>
-              </div>
-              <p className="text-base sm:text-lg font-black mt-0.5 text-white">
-                {courses.length} Kelas Aktif • {teacherSummaryRecords.length} Guru • {lastSyncTime || 'Baru Saja'}
-              </p>
+        {/* Google Sheets Toast Notification */}
+        {sheetsToast && (
+          <div
+            className={`mb-4 p-3.5 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in slide-in-from-top-2 duration-200 border ${
+              sheetsToast.type === 'success'
+                ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                : 'bg-rose-50 text-rose-900 border-rose-300'
+            }`}
+          >
+            <div className="flex items-center space-x-2.5">
+              {sheetsToast.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span>{sheetsToast.message}</span>
             </div>
             <button
-              onClick={handleRefresh}
-              className="inline-flex items-center justify-center space-x-1.5 bg-[#FFC800] hover:bg-amber-400 text-slate-950 active:scale-95 px-4 py-2 rounded-xl font-black text-xs transition-all shrink-0 cursor-pointer shadow-xs"
+              onClick={() => setSheetsToast(null)}
+              className="text-slate-400 hover:text-slate-700 text-xs px-2 py-0.5 rounded cursor-pointer"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh Data Manual</span>
+              ✕
             </button>
+          </div>
+        )}
+
+        {/* Bento Top Banner (Google Classroom & Google Sheets Status) */}
+        {!syncProgress.isSyncing && (courses.length > 0 || studentRecords.length > 0) && (
+          <div className="mb-5 space-y-2.5">
+            {/* Main Classroom Sync Bar */}
+            <div className="bg-slate-900 border border-amber-400/40 rounded-2xl p-4 sm:p-5 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#FFC800] animate-pulse" />
+                  <p className="text-xs font-medium text-amber-200">Sistem Monitoring Clearance Kurikulum</p>
+                </div>
+                <p className="text-base sm:text-lg font-black mt-0.5 text-white">
+                  {courses.length > 0 ? `${courses.length} Kelas Aktif • ` : ''}
+                  {studentRecords.length} Siswa Terdaftar • {teacherSummaryRecords.length} Guru • {lastSyncTime || 'Tersedia'}
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleRefresh}
+                  className="inline-flex items-center justify-center space-x-1.5 bg-[#FFC800] hover:bg-amber-400 text-slate-950 active:scale-95 px-3.5 py-2 rounded-xl font-black text-xs transition-all shrink-0 cursor-pointer shadow-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Ambil Data Classroom</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Google Sheets Database Active Banner */}
+            {databaseMeta ? (
+              <div className="bg-emerald-50/90 border border-emerald-300 rounded-xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-emerald-950 shadow-2xs">
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <Table className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="truncate">
+                    <span className="font-extrabold text-emerald-900">Database Google Sheets: </span>
+                    <span className="font-bold text-slate-800">{databaseMeta.title}</span>
+                    <span className="text-[11px] text-emerald-700 ml-2 hidden md:inline">
+                      • Terakhir sinkron: {databaseMeta.lastSyncedAt || 'Belum tersinkron'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  <a
+                    href={databaseMeta.spreadsheetUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100 rounded-lg transition-colors"
+                  >
+                    <span>Buka Sheet</span>
+                    <ArrowUpRight className="w-3 h-3" />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsSyncConfirmModalOpen(true)}
+                    className="inline-flex items-center space-x-1 px-3 py-1 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <span>Simpan ke Sheets</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsDatabaseModalOpen(true)}
+                    className="inline-flex items-center px-2 py-1 text-[11px] font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Kelola Database
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50/90 border border-amber-200 rounded-xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
+                <div className="flex items-center space-x-2">
+                  <Table className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>
+                    <strong>Database Google Sheets belum terhubung.</strong> Simpan seluruh rekap clearance siswa dan riwayat penilaian ke Google Sheets Anda.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsDatabaseModalOpen(true)}
+                  className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg text-xs font-extrabold text-slate-950 bg-[#FFC800] hover:bg-amber-400 border border-amber-400 shadow-2xs cursor-pointer shrink-0 transition-all"
+                >
+                  <Table className="w-3.5 h-3.5 text-emerald-800" />
+                  <span>Hubungkan Google Sheets</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -286,6 +464,35 @@ export default function App() {
       <TeacherDetailModal
         record={selectedTeacherRecord}
         onClose={() => setSelectedTeacherRecord(null)}
+      />
+
+      {/* Google Sheets Database Manager Modal */}
+      <GoogleSheetsDatabaseModal
+        isOpen={isDatabaseModalOpen}
+        onClose={() => setIsDatabaseModalOpen(false)}
+        databaseMeta={databaseMeta}
+        onDatabaseMetaChange={setDatabaseMeta}
+        onOpenSyncConfirm={() => {
+          setIsDatabaseModalOpen(false);
+          setIsSyncConfirmModalOpen(true);
+        }}
+        onLoadFromSheets={handleLoadFromSheets}
+        isLoadingFromSheets={isLoadingFromSheets}
+        studentRecordsCount={studentRecords.length}
+        taskRecordsCount={totalTasksCount}
+        teacherRecordsCount={teacherSummaryRecords.length}
+      />
+
+      {/* Google Sheets Synchronize Confirmation Modal */}
+      <GoogleSheetsSyncConfirmModal
+        isOpen={isSyncConfirmModalOpen}
+        onClose={() => setIsSyncConfirmModalOpen(false)}
+        onConfirm={handleSyncToSheetsConfirm}
+        isProcessing={isSyncingToSheets}
+        meta={databaseMeta}
+        studentCount={studentRecords.length}
+        taskCount={totalTasksCount}
+        teacherCount={teacherSummaryRecords.length}
       />
     </div>
   );
