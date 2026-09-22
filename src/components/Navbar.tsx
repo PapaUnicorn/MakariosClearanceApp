@@ -14,7 +14,7 @@ import {
 import { User } from 'firebase/auth';
 import { GoogleSheetDatabaseMeta } from '../services/googleSheetsDatabase';
 
-export type AppTabType = 'students' | 'teachers' | 'audit' | 'gradebook' | 'workload' | 'stats';
+export type AppTabType = 'students' | 'teachers' | 'audit' | 'gradebook' | 'workload';
 
 interface NavbarProps {
   user: User | null;
@@ -216,19 +216,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Briefcase className="w-4 h-4" />
             <span>Kinerja Guru & SLA</span>
-          </button>
-
-          <button
-            id="tab-stats-btn"
-            onClick={() => setActiveTab('stats')}
-            className={`inline-flex items-center space-x-2 py-3 px-2 sm:px-1 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'stats'
-                ? 'border-amber-500 text-amber-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Bento Analytics</span>
           </button>
         </div>
       </div>

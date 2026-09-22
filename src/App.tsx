@@ -21,7 +21,6 @@ import { TeacherClearanceTable } from './components/TeacherClearanceTable';
 import { CurriculumAuditDashboard } from './components/CurriculumAuditDashboard';
 import { GradebookDashboard } from './components/GradebookDashboard';
 import { TeacherWorkloadDashboard } from './components/TeacherWorkloadDashboard';
-import { SummaryStats } from './components/SummaryStats';
 import { StudentDetailModal } from './components/StudentDetailModal';
 import { TeacherDetailModal } from './components/TeacherDetailModal';
 import { GoogleSheetsDatabaseModal } from './components/GoogleSheetsDatabaseModal';
@@ -474,14 +473,6 @@ export default function App() {
                 teacherSummaryRecords={teacherSummaryRecords}
                 teacherClearanceRecords={teacherRecords}
                 studentRecords={studentRecords}
-              />
-            )}
-
-            {activeTab === 'stats' && (
-              <SummaryStats
-                studentRecords={studentRecords}
-                teacherRecords={teacherRecords}
-                teacherSummaryRecords={teacherSummaryRecords}
               />
             )}
           </div>
