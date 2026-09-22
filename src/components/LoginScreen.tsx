@@ -22,6 +22,7 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, error }) => {
   const [copied, setCopied] = useState(false);
   const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
   const isUnauthorizedDomain =
     error && (error.includes('unauthorized-domain') || error.includes('auth/unauthorized-domain'));
 
@@ -123,7 +124,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, er
         ) : error ? (
           <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-start space-x-2">
             <div className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1.5 shrink-0" />
-            <span>{error}</span>
+            <div className="flex-1 space-y-1">
+              <span>{error}</span>
+              {(error.toLowerCase().includes('popup') || isInIframe) && (
+                <div className="pt-1">
+                  <a
+                    href={window.location.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-bold text-rose-800 hover:text-rose-950 underline"
+                  >
+                    <span>Buka aplikasi di tab baru</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
 
@@ -188,6 +204,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, er
               </div>
             )}
           </button>
+
+          {isInIframe && (
+            <div className="mt-2.5 text-center">
+              <a
+                href={window.location.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-1 text-xs text-amber-700 hover:text-amber-800 hover:underline font-semibold"
+              >
+                <span>Buka di tab baru jika jendela popup terhalang</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Security footer */}

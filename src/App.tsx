@@ -144,6 +144,15 @@ export default function App() {
         setToken(res.accessToken);
       }
     } catch (err: any) {
+      if (
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request' ||
+        err?.message?.includes('popup-closed-by-user') ||
+        err?.message?.includes('cancelled-popup-request')
+      ) {
+        // User voluntarily closed the login popup
+        return;
+      }
       console.error('Login failed:', err);
       setLoginError(err.message || 'Login dengan Google gagal. Silakan coba lagi.');
     } finally {

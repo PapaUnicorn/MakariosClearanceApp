@@ -75,7 +75,31 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
-    console.error('Sign in error:', error);
+    // 1. Popup closed by user or cancelled is an intentional user cancellation, not a system error
+    if (
+      error?.code === 'auth/popup-closed-by-user' ||
+      error?.code === 'auth/cancelled-popup-request' ||
+      error?.message?.includes('popup-closed-by-user') ||
+      error?.message?.includes('cancelled-popup-request')
+    ) {
+      console.warn('Login Google dibatalkan atau jendela popup ditutup oleh pengguna.');
+      return null;
+    }
+
+    // 2. Popup blocked by browser settings or iframe security
+    if (
+      error?.code === 'auth/popup-blocked' ||
+      error?.message?.includes('popup-blocked')
+    ) {
+      console.warn('Popup login Google diblokir oleh browser.');
+      const blockedError = new Error(
+        'Jendela popup login diblokir oleh browser. Harap izinkan pop-up di browser Anda atau buka aplikasi di tab baru.'
+      );
+      (blockedError as any).code = 'auth/popup-blocked';
+      throw blockedError;
+    }
+
+    // 3. Unauthorized domain helper
     if (error?.code === 'auth/unauthorized-domain' || error?.message?.includes('unauthorized-domain')) {
       const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
       const enhancedError = new Error(
@@ -85,6 +109,8 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
       (enhancedError as any).domain = currentHost;
       throw enhancedError;
     }
+
+    console.error('Sign in error:', error);
     throw error;
   } finally {
     isSigningIn = false;
