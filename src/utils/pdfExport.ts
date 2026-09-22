@@ -1,7 +1,64 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { StudentClearanceRecord, TeacherSummaryRecord, FlattenedTeacherTaskRow, getTaskStatusInfo } from '../types';
 import { filterTasksUpToMonth } from './dateFilter';
+
+/**
+ * Defensive initializer for jsPDF instance to support all bundlers & environments
+ */
+function initJsPDF(options?: any): jsPDF {
+  if (typeof jsPDF === 'function') {
+    return new jsPDF(options);
+  }
+  const anyJsPDF = jsPDF as any;
+  if (typeof anyJsPDF.jsPDF === 'function') {
+    return new anyJsPDF.jsPDF(options);
+  }
+  if (typeof anyJsPDF.default === 'function') {
+    return new anyJsPDF.default(options);
+  }
+  return new (window as any).jspdf.jsPDF(options);
+}
+
+/**
+ * Defensive runner for jspdf-autotable
+ */
+function runAutoTable(doc: any, options: any) {
+  if (typeof (doc as any).autoTable === 'function') {
+    (doc as any).autoTable(options);
+  } else if (typeof autoTable === 'function') {
+    autoTable(doc, options);
+  } else if (typeof (autoTable as any).default === 'function') {
+    (autoTable as any).default(doc, options);
+  } else if (typeof (autoTable as any).applyPlugin === 'function') {
+    (autoTable as any).applyPlugin(doc);
+    (doc as any).autoTable(options);
+  }
+}
+
+/**
+ * Safe PDF document saver with fallback to Blob URL
+ */
+function savePdfDocument(doc: jsPDF, fileName: string) {
+  try {
+    doc.save(fileName);
+  } catch (err) {
+    console.warn('doc.save failed, using fallback blob download:', err);
+    try {
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (fallbackErr) {
+      console.error('All PDF download mechanisms failed:', fallbackErr);
+    }
+  }
+}
 
 /**
  * Export Student Monthly Learning Progress Report (PDF format)
@@ -21,7 +78,7 @@ export function exportStudentMonthlyProgressReportPDF(
   targetYear?: number,
   targetMonth?: number
 ) {
-  const doc = new jsPDF({
+  const doc = initJsPDF({
     orientation: 'portrait',
     unit: 'pt',
     format: 'a4',
@@ -108,7 +165,7 @@ export function exportStudentMonthlyProgressReportPDF(
     ];
   });
 
-  autoTable(doc, {
+  runAutoTable(doc, {
     startY: monthY + 16,
     head: [['No.', 'Subject', 'Overall\nScore', 'Missing Assignments']],
     body: tableData,
@@ -213,7 +270,7 @@ export function exportStudentMonthlyProgressReportPDF(
 
   const sanitized = studentName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const fileName = `Progress_Report_${sanitized}_${currentMonth.replace(/\s+/g, '_')}.pdf`;
-  doc.save(fileName);
+  savePdfDocument(doc, fileName);
 }
 
 /**
@@ -237,7 +294,7 @@ export function exportStudentsToPDF(
   records: StudentClearanceRecord[],
   titleSuffix: string = ''
 ) {
-  const doc = new jsPDF({
+  const doc = initJsPDF({
     orientation: 'landscape',
     unit: 'pt',
     format: 'a4',
@@ -340,7 +397,7 @@ export function exportStudentsToPDF(
     row.clearanceStatus,
   ]);
 
-  autoTable(doc, {
+  runAutoTable(doc, {
     startY: 84,
     head: [['No', 'Nama Siswa', 'Kelas', 'Mata Pelajaran', 'Nama Tugas', 'Deadline', 'Status Tugas', 'Status']],
     body: tableData,
@@ -409,7 +466,7 @@ export function exportStudentsToPDF(
   });
 
   const fileName = `Makarios_Clearance_Siswa_${now.toISOString().slice(0, 10)}.pdf`;
-  doc.save(fileName);
+  savePdfDocument(doc, fileName);
 }
 
 export interface TeacherExportFilterOptions {
@@ -432,7 +489,7 @@ export function exportFilteredTeacherTasksToPDF(
 ) {
   if (!rows || rows.length === 0) return;
 
-  const doc = new jsPDF({
+  const doc = initJsPDF({
     orientation: 'landscape',
     unit: 'pt',
     format: 'a4',
@@ -608,7 +665,7 @@ export function exportFilteredTeacherTasksToPDF(
     ];
   });
 
-  autoTable(doc, {
+  runAutoTable(doc, {
     startY: summaryBoxY + summaryBoxHeight + 14,
     head: [['No', 'Nama Guru', 'Kelas', 'Mata Pelajaran', 'Tugas Belum Dinilai', 'Status']],
     body: tableData,
@@ -674,7 +731,7 @@ export function exportFilteredTeacherTasksToPDF(
     fileName = `Makarios_Grading_Guru_Terfilter_${cleanDate}.pdf`;
   }
 
-  doc.save(fileName);
+  savePdfDocument(doc, fileName);
 }
 
 /**

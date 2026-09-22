@@ -1,7 +1,8 @@
 import React from 'react';
-import { X, ExternalLink, BookOpen, Clock, User, CheckCircle2, Award, FileText } from 'lucide-react';
+import { X, ExternalLink, BookOpen, Clock, User, CheckCircle2, Award, FileText, FileSpreadsheet, Printer } from 'lucide-react';
 import { TeacherSummaryRecord } from '../types';
 import { exportSingleTeacherRecordToPDF } from '../utils/pdfExport';
+import { exportSingleTeacherRecordToXLSX } from '../utils/excelExport';
 
 interface TeacherDetailModalProps {
   record: TeacherSummaryRecord | null;
@@ -171,17 +172,29 @@ export const TeacherDetailModal: React.FC<TeacherDetailModalProps> = ({ record, 
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
-          <button
-            id="btn-export-single-teacher-modal-pdf"
-            type="button"
-            onClick={() => exportSingleTeacherRecordToPDF(record)}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl border border-slate-800 shadow-2xs transition-colors cursor-pointer"
-            title={`Unduh laporan PDF khusus ${record.teacherName}`}
-          >
-            <FileText className="w-3.5 h-3.5 text-[#FFC800]" />
-            <span>Ekspor PDF ({record.teacherName})</span>
-          </button>
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center space-x-2">
+            <button
+              id="btn-export-single-teacher-modal-xlsx"
+              type="button"
+              onClick={() => exportSingleTeacherRecordToXLSX(record)}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl border border-emerald-800 shadow-2xs transition-colors cursor-pointer"
+              title={`Unduh data tugas ${record.teacherName} ke file Microsoft Excel (.xlsx)`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Export to XLSX</span>
+            </button>
+            <button
+              id="btn-export-single-teacher-modal-pdf"
+              type="button"
+              onClick={() => exportSingleTeacherRecordToPDF(record)}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl border border-slate-800 shadow-2xs transition-colors cursor-pointer"
+              title={`Cetak atau unduh laporan PDF khusus ${record.teacherName}`}
+            >
+              <Printer className="w-3.5 h-3.5 text-[#FFC800]" />
+              <span>Cetak PDF</span>
+            </button>
+          </div>
           <button
             id="btn-close-teacher-detail"
             onClick={onClose}

@@ -18,9 +18,12 @@ import {
   ChevronUp,
   FileCheck,
   Calendar,
+  FileSpreadsheet,
+  Printer,
 } from 'lucide-react';
 import { TeacherSummaryRecord, FlattenedTeacherTaskRow } from '../types';
 import { exportFilteredTeacherTasksToPDF, exportSingleTeacherRecordToPDF, exportTeachersToPDF } from '../utils/pdfExport';
+import { exportFilteredTeacherTasksToXLSX } from '../utils/excelExport';
 import { ExcelMultiSelectFilter } from './ExcelMultiSelectFilter';
 
 interface TeacherClearanceTableProps {
@@ -262,17 +265,48 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
       : uniqueTeachersInFiltered[0]
     : undefined;
 
+  const [exportFeedback, setExportFeedback] = useState<string | null>(null);
+
   const handleExportPDF = () => {
     if (filteredRows.length === 0) return;
 
-    exportFilteredTeacherTasksToPDF(filteredRows, {
-      singleTeacherName,
-      selectedTeachers,
-      selectedClasses,
-      selectedCourses,
-      statusFilter,
-      searchTerm,
-    });
+    try {
+      exportFilteredTeacherTasksToPDF(filteredRows, {
+        singleTeacherName,
+        selectedTeachers,
+        selectedClasses,
+        selectedCourses,
+        statusFilter,
+        searchTerm,
+      });
+      setExportFeedback('PDF berhasil dicetak!');
+      setTimeout(() => setExportFeedback(null), 3500);
+    } catch (err) {
+      console.error('Export PDF error:', err);
+      setExportFeedback('Gagal mencetak PDF. Silakan coba lagi.');
+      setTimeout(() => setExportFeedback(null), 3500);
+    }
+  };
+
+  const handleExportXLSX = () => {
+    if (filteredRows.length === 0) return;
+
+    try {
+      exportFilteredTeacherTasksToXLSX(filteredRows, {
+        singleTeacherName,
+        selectedTeachers,
+        selectedClasses,
+        selectedCourses,
+        statusFilter,
+        searchTerm,
+      });
+      setExportFeedback('File XLSX berhasil diunduh!');
+      setTimeout(() => setExportFeedback(null), 3500);
+    } catch (err) {
+      console.error('Export XLSX error:', err);
+      setExportFeedback('Gagal mengunduh XLSX. Silakan coba lagi.');
+      setTimeout(() => setExportFeedback(null), 3500);
+    }
   };
 
   const handleExportSingleTeacher = (record: TeacherSummaryRecord) => {
@@ -369,36 +403,38 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
             )}
           </div>
 
-          {/* Export PDF Button */}
+          {/* Action Buttons: Export to XLSX & Cetak PDF */}
           <div className="flex items-center space-x-2 shrink-0">
+            {exportFeedback && (
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg animate-fade-in">
+                {exportFeedback}
+              </span>
+            )}
+
+            {/* Export to XLSX */}
+            <button
+              id="btn-export-teacher-xlsx"
+              type="button"
+              onClick={handleExportXLSX}
+              disabled={filteredRows.length === 0}
+              className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-800 disabled:opacity-50"
+              title={`Unduh data terfilter (${filteredRows.length} baris tugas) dalam format Microsoft Excel (.xlsx)`}
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+              <span>Export to XLSX ({filteredRows.length})</span>
+            </button>
+
+            {/* Cetak PDF */}
             <button
               id="btn-export-teacher-pdf"
               type="button"
               onClick={handleExportPDF}
               disabled={filteredRows.length === 0}
-              className={`inline-flex items-center justify-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border ${
-                isSingleTeacherFiltered
-                  ? 'bg-amber-400 hover:bg-amber-500 text-slate-950 border-amber-500 font-extrabold shadow-sm'
-                  : hasActiveFilters
-                  ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-800'
-                  : 'bg-slate-900 hover:bg-slate-800 text-white border-slate-800'
-              } disabled:opacity-50`}
-              title={
-                isSingleTeacherFiltered
-                  ? `Unduh Laporan PDF khusus untuk ${singleTeacherName} (${filteredRows.length} baris tugas)`
-                  : hasActiveFilters
-                  ? `Unduh Laporan PDF untuk data terfilter (${filteredRows.length} baris tugas)`
-                  : `Unduh Laporan PDF untuk semua guru (${filteredRows.length} tugas)`
-              }
+              className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border bg-slate-900 hover:bg-slate-800 text-white border-slate-800 disabled:opacity-50"
+              title={`Cetak atau unduh laporan data terfilter (${filteredRows.length} baris tugas) dalam format PDF`}
             >
-              <FileText className={`w-4 h-4 ${isSingleTeacherFiltered ? 'text-slate-950' : 'text-[#FFC800]'}`} />
-              <span>
-                {isSingleTeacherFiltered
-                  ? `Ekspor PDF: ${singleTeacherName}`
-                  : hasActiveFilters
-                  ? `Ekspor PDF Terfilter (${filteredRows.length} Tugas)`
-                  : 'Ekspor PDF Semua Guru'}
-              </span>
+              <Printer className="w-4 h-4 text-[#FFC800]" />
+              <span>Cetak PDF ({filteredRows.length})</span>
             </button>
           </div>
         </div>
@@ -692,20 +728,6 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
                                 {row.teacherEmail}
                               </div>
                             )}
-                            <div className="flex items-center space-x-1.5 mt-1">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleExportSingleTeacher(row.parentRecord);
-                                }}
-                                className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-900 text-[10px] font-bold transition-colors cursor-pointer border border-amber-200 shadow-2xs"
-                                title={`Unduh laporan PDF khusus guru ${row.teacherName}`}
-                              >
-                                <FileText className="w-2.5 h-2.5 text-amber-700" />
-                                <span>PDF Guru</span>
-                              </button>
-                            </div>
                           </div>
                         </div>
                       </td>
