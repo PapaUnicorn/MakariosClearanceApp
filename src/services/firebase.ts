@@ -70,6 +70,15 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     console.error('Sign in error:', error);
+    if (error?.code === 'auth/unauthorized-domain' || error?.message?.includes('unauthorized-domain')) {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+      const enhancedError = new Error(
+        `Firebase: Error (auth/unauthorized-domain). Domain "${currentHost}" belum didaftarkan di Authorized Domains Firebase Authentication.`
+      );
+      (enhancedError as any).code = 'auth/unauthorized-domain';
+      (enhancedError as any).domain = currentHost;
+      throw enhancedError;
+    }
     throw error;
   } finally {
     isSigningIn = false;

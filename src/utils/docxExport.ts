@@ -13,14 +13,20 @@ import {
   ShadingType,
 } from 'docx';
 import { StudentClearanceRecord } from '../types';
+import { filterTasksUpToMonth } from './dateFilter';
 
 export async function exportStudentMonthlyReportDocx(
   studentName: string,
   records: StudentClearanceRecord[],
   schoolLevel: string = 'JUNIOR HIGH SCHOOL',
-  monthYearStr?: string
+  monthYearStr?: string,
+  targetYear?: number,
+  targetMonth?: number
 ) {
   const now = new Date();
+  const filterYear = targetYear || now.getFullYear();
+  const filterMonth = targetMonth || now.getMonth() + 1; // 1-12
+
   const currentMonth = monthYearStr || now.toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric',
@@ -33,6 +39,7 @@ export async function exportStudentMonthlyReportDocx(
   tableRows.push(
     new TableRow({
       tableHeader: true,
+      cantSplit: true,
       children: [
         new TableCell({
           width: { size: 6, type: WidthType.PERCENTAGE },
@@ -100,8 +107,8 @@ export async function exportStudentMonthlyReportDocx(
 
   // Table Body Rows
   records.forEach((record, index) => {
-    // Missing assignments (clean list format without bullets/numbering)
-    const missingTasks = record.unfinishedTasks;
+    // Missing assignments: Filter only NOT_SUBMITTED tasks due in this month or earlier
+    const missingTasks = filterTasksUpToMonth(record.unfinishedTasks, filterYear, filterMonth, true);
     const missingParagraphs: Paragraph[] = [];
 
     if (missingTasks.length === 0) {
@@ -119,27 +126,42 @@ export async function exportStudentMonthlyReportDocx(
         })
       );
     } else {
-      missingTasks.forEach((task) => {
-        const statusLabel =
-          task.status === 'NOT_SUBMITTED' ? '(Belum Dikumpul)' : '(Menunggu Nilai)';
+      missingTasks.forEach((task, tIdx) => {
         const dueText =
-          task.dueDateStr && task.dueDateStr !== 'Tanpa Batas Waktu' ? ` [${task.dueDateStr}]` : '';
+          task.dueDateStr && task.dueDateStr !== 'Tanpa Batas Waktu' ? task.dueDateStr : 'Tanpa batas waktu';
 
+        // 1. Task Title & Status (Top line)
         missingParagraphs.push(
           new Paragraph({
-            spacing: { after: 80 },
+            spacing: { before: tIdx > 0 ? 120 : 0, after: 20 },
             children: [
               new TextRun({
-                text: `${task.title} `,
+                text: `• ${task.title} `,
                 bold: true,
                 size: 20,
                 color: '0F172A',
                 font: 'Calibri',
               }),
               new TextRun({
-                text: `${statusLabel}${dueText}`,
+                text: '(Belum Dikumpul)',
+                bold: true,
                 size: 18,
-                color: task.status === 'NOT_SUBMITTED' ? 'E11D48' : 'D97706',
+                color: 'E11D48',
+                font: 'Calibri',
+              }),
+            ],
+          })
+        );
+
+        // 2. Deadline (Bottom line)
+        missingParagraphs.push(
+          new Paragraph({
+            spacing: { after: 100 },
+            children: [
+              new TextRun({
+                text: `    Deadline: ${dueText}`,
+                size: 18,
+                color: '64748B',
                 font: 'Calibri',
               }),
             ],
@@ -168,6 +190,7 @@ export async function exportStudentMonthlyReportDocx(
 
     tableRows.push(
       new TableRow({
+        cantSplit: true,
         children: [
           new TableCell({
             verticalAlign: VerticalAlign.TOP,

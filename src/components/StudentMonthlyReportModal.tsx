@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, FileDown, Printer, FileText, CheckCircle2 } from 'lucide-react';
+import { X, FileDown, Printer, FileText, CheckCircle2, Calendar } from 'lucide-react';
 import { StudentClearanceRecord } from '../types';
 import { exportStudentMonthlyProgressReportPDF } from '../utils/pdfExport';
 import { exportStudentMonthlyReportDocx } from '../utils/docxExport';
+import { filterTasksUpToMonth } from '../utils/dateFilter';
 
 interface StudentMonthlyReportModalProps {
   studentName: string;
@@ -11,6 +12,21 @@ interface StudentMonthlyReportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const MONTH_OPTIONS = [
+  { value: 1, label: 'JANUARY' },
+  { value: 2, label: 'FEBRUARY' },
+  { value: 3, label: 'MARCH' },
+  { value: 4, label: 'APRIL' },
+  { value: 5, label: 'MAY' },
+  { value: 6, label: 'JUNE' },
+  { value: 7, label: 'JULY' },
+  { value: 8, label: 'AUGUST' },
+  { value: 9, label: 'SEPTEMBER' },
+  { value: 10, label: 'OCTOBER' },
+  { value: 11, label: 'NOVEMBER' },
+  { value: 12, label: 'DECEMBER' },
+];
 
 export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps> = ({
   studentName,
@@ -28,22 +44,37 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
   );
 
   const now = new Date();
-  const currentMonthStr = now
-    .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    .toUpperCase();
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+
+  const currentMonthStr = `${MONTH_OPTIONS.find((m) => m.value === selectedMonth)?.label || 'AUGUST'} ${selectedYear}`;
 
   const [isExportingDocx, setIsExportingDocx] = useState(false);
 
   if (!isOpen || !studentName) return null;
 
   const handleExportPDF = () => {
-    exportStudentMonthlyProgressReportPDF(studentName, records, schoolLevel, currentMonthStr);
+    exportStudentMonthlyProgressReportPDF(
+      studentName,
+      records,
+      schoolLevel,
+      currentMonthStr,
+      selectedYear,
+      selectedMonth
+    );
   };
 
   const handleExportDocx = async () => {
     setIsExportingDocx(true);
     try {
-      await exportStudentMonthlyReportDocx(studentName, records, schoolLevel, currentMonthStr);
+      await exportStudentMonthlyReportDocx(
+        studentName,
+        records,
+        schoolLevel,
+        currentMonthStr,
+        selectedYear,
+        selectedMonth
+      );
     } catch (err) {
       console.error('Gagal mengekspor DOCX:', err);
     } finally {
@@ -78,7 +109,36 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Month & Year Filter Selector */}
+            <div className="flex items-center space-x-1.5 bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-500/40">
+              <Calendar className="w-3.5 h-3.5 text-[#FFC800]" />
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="bg-transparent text-amber-300 text-xs font-bold focus:outline-none cursor-pointer"
+                title="Pilih Bulan Rapor"
+              >
+                {MONTH_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value} className="bg-slate-900 text-white">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="bg-transparent text-amber-300 text-xs font-bold focus:outline-none cursor-pointer"
+                title="Pilih Tahun"
+              >
+                {[selectedYear - 1, selectedYear, selectedYear + 1].map((yr) => (
+                  <option key={yr} value={yr} className="bg-slate-900 text-white">
+                    {yr}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <select
               value={schoolLevel}
               onChange={(e) => setSchoolLevel(e.target.value)}
@@ -173,12 +233,19 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
                         }
                       }
 
-                      const missingTasks = rec.unfinishedTasks;
+                      // Filter missing tasks (strictly only NOT_SUBMITTED) up to the selected report month
+                      const missingTasks = filterTasksUpToMonth(
+                        rec.unfinishedTasks,
+                        selectedYear,
+                        selectedMonth,
+                        true
+                      );
 
                       return (
                         <tr
                           key={rec.id || idx}
-                          className={`divide-x divide-slate-200 align-top transition-colors ${
+                          style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
+                          className={`divide-x divide-slate-200 align-top transition-colors break-inside-avoid ${
                             idx % 2 === 1 ? 'bg-amber-50/20' : 'bg-white'
                           }`}
                         >
@@ -211,28 +278,18 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
                                 {missingTasks.map((t, tIdx) => (
                                   <div
                                     key={t.courseWorkId || tIdx}
-                                    className="p-2 rounded-lg bg-slate-50 border border-slate-200/80 flex flex-wrap items-center justify-between gap-1.5 text-slate-900"
+                                    className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 shadow-2xs"
                                   >
-                                    <div className="font-semibold text-xs text-slate-900 leading-snug flex-1 min-w-[160px]">
-                                      {t.title}
-                                    </div>
-                                    <div className="flex items-center space-x-1.5 shrink-0">
-                                      {t.dueDateStr && t.dueDateStr !== 'Tanpa Batas Waktu' && (
-                                        <span className="text-[10px] text-slate-500 font-medium bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                                          {t.dueDateStr}
-                                        </span>
-                                      )}
-                                      <span
-                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                                          t.status === 'NOT_SUBMITTED'
-                                            ? 'text-rose-700 bg-rose-50 border-rose-200'
-                                            : 'text-amber-800 bg-amber-50 border-amber-200'
-                                        }`}
-                                      >
-                                        {t.status === 'NOT_SUBMITTED'
-                                          ? 'Belum Kumpul'
-                                          : 'Menunggu Nilai'}
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="font-bold text-xs text-slate-900 leading-snug">
+                                        • {t.title}
+                                      </div>
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 text-rose-700 bg-rose-50 border-rose-200">
+                                        Belum Dikumpul
                                       </span>
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 font-medium mt-1 pl-2.5">
+                                      Deadline: <span className="text-slate-700 font-semibold">{t.dueDateStr && t.dueDateStr !== 'Tanpa Batas Waktu' ? t.dueDateStr : 'Tanpa batas waktu'}</span>
                                     </div>
                                   </div>
                                 ))}
@@ -248,7 +305,7 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
             </div>
 
             {/* Report Footer / Signature Area & Automatic Print Notice */}
-            <div className="mt-10 pt-4 border-t border-slate-200 flex justify-between items-end text-xs text-slate-500">
+            <div className="report-footer-signature mt-10 pt-4 border-t border-slate-200 flex justify-between items-end text-xs text-slate-500">
               <div>
                 <p className="italic font-medium text-slate-600">
                   Dicetak secara otomatis melalui Makarios Clearance App.

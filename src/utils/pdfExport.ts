@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { StudentClearanceRecord, TeacherSummaryRecord } from '../types';
+import { filterTasksUpToMonth } from './dateFilter';
 
 /**
  * Export Student Monthly Learning Progress Report (PDF format)
@@ -16,7 +17,9 @@ export function exportStudentMonthlyProgressReportPDF(
   studentName: string,
   records: StudentClearanceRecord[],
   schoolLevel: string = 'JUNIOR HIGH SCHOOL',
-  monthYearStr?: string
+  monthYearStr?: string,
+  targetYear?: number,
+  targetMonth?: number
 ) {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -25,6 +28,9 @@ export function exportStudentMonthlyProgressReportPDF(
   });
 
   const now = new Date();
+  const filterYear = targetYear || now.getFullYear();
+  const filterMonth = targetMonth || now.getMonth() + 1; // 1-12
+
   const currentMonth = monthYearStr || now.toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric',
@@ -81,16 +87,16 @@ export function exportStudentMonthlyProgressReportPDF(
       }
     }
 
-    // Missing assignments formatting in clean list (without bullets or numbering)
+    // Missing assignments formatting: Filter only NOT_SUBMITTED tasks due in this month or earlier
+    const filteredUnfinished = filterTasksUpToMonth(record.unfinishedTasks, filterYear, filterMonth, true);
     let missingText = 'None';
-    if (record.unfinishedTasks.length > 0) {
-      missingText = record.unfinishedTasks
+    if (filteredUnfinished.length > 0) {
+      missingText = filteredUnfinished
         .map((t) => {
-          const status = t.status === 'NOT_SUBMITTED' ? '(Belum Dikumpul)' : '(Menunggu Nilai)';
-          const due = t.dueDateStr && t.dueDateStr !== 'Tanpa Batas Waktu' ? ` [${t.dueDateStr}]` : '';
-          return `${t.title} ${status}${due}`;
+          const due = t.dueDateStr && t.dueDateStr !== 'Tanpa Batas Waktu' ? t.dueDateStr : 'Tanpa batas waktu';
+          return `• ${t.title} (Belum Dikumpul)\n   Deadline: ${due}`;
         })
-        .join('\n');
+        .join('\n\n');
     }
 
     return [
@@ -106,6 +112,8 @@ export function exportStudentMonthlyProgressReportPDF(
     head: [['No.', 'Subject', 'Overall\nScore', 'Missing Assignments']],
     body: tableData,
     theme: 'grid',
+    rowPageBreak: 'avoid',
+    showHead: 'everyPage',
     headStyles: {
       fillColor: [255, 200, 0], // Maybank Vibrant Yellow (#FFC800)
       textColor: [15, 23, 42], // Slate 900 / Charcoal (High contrast)

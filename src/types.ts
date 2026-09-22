@@ -84,6 +84,10 @@ export interface StudentTaskItem {
   section?: string;
   alternateLink?: string;
   dueDateStr?: string;
+  dueYear?: number;
+  dueMonth?: number; // 1-12
+  dueDay?: number;
+  creationTime?: string;
   maxPoints?: number;
   status: TaskStatusType;
   submissionState: string;

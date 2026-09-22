@@ -1,5 +1,17 @@
-import React from 'react';
-import { GraduationCap, ShieldCheck, CheckCircle, FileSpreadsheet, Sparkles, BookOpen } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  GraduationCap,
+  ShieldCheck,
+  CheckCircle,
+  FileSpreadsheet,
+  Sparkles,
+  BookOpen,
+  AlertTriangle,
+  Copy,
+  Check,
+  ExternalLink,
+  Globe,
+} from 'lucide-react';
 
 interface LoginScreenProps {
   onLogin: () => void;
@@ -8,11 +20,24 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, error }) => {
+  const [copied, setCopied] = useState(false);
+  const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isUnauthorizedDomain =
+    error && (error.includes('unauthorized-domain') || error.includes('auth/unauthorized-domain'));
+
+  const handleCopyDomain = () => {
+    if (currentHostname) {
+      navigator.clipboard.writeText(currentHostname);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
   return (
-    <div id="login-container" className="min-h-screen bg-slate-50 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-12">
-      <div className="w-full max-w-md bg-white border border-amber-300 rounded-3xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
+    <div id="login-container" className="min-h-screen bg-slate-50 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-10">
+      <div className="w-full max-w-lg bg-white border border-amber-300 rounded-3xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
         {/* Header Branding with Maybank Yellow */}
-        <div className="text-center relative z-10 mb-8">
+        <div className="text-center relative z-10 mb-6">
           <div className="mx-auto w-14 h-14 bg-[#FFC800] border border-amber-400 rounded-2xl flex items-center justify-center text-slate-950 font-black text-2xl shadow-sm mb-4">
             M
           </div>
@@ -24,12 +49,83 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, er
           </p>
         </div>
 
-        {error && (
+        {/* Detailed Unauthorized Domain Helper */}
+        {isUnauthorizedDomain ? (
+          <div className="mb-6 p-4 bg-amber-50/80 border border-amber-300 rounded-2xl text-slate-800 text-xs shadow-xs space-y-3">
+            <div className="flex items-start space-x-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-black text-slate-900 text-sm">
+                  Domain Belum Diizinkan di Firebase (auth/unauthorized-domain)
+                </h3>
+                <p className="text-slate-600 mt-1 leading-relaxed">
+                  Firebase Authentication memblokir login popup demi keamanan karena alamat domain web ini belum terdaftar di whitelist <strong>Authorized Domains</strong>.
+                </p>
+              </div>
+            </div>
+
+            {/* Current Hostname Display & Copy */}
+            <div className="bg-white border border-amber-200 rounded-xl p-2.5 flex items-center justify-between gap-2">
+              <div className="flex items-center space-x-2 truncate">
+                <Globe className="w-4 h-4 text-amber-600 shrink-0" />
+                <span className="font-mono text-xs font-bold text-slate-800 select-all truncate">
+                  {currentHostname || 'Domain saat ini'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyDomain}
+                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-slate-900 font-bold text-[11px] transition-colors shrink-0 cursor-pointer"
+                title="Salin domain untuk didaftarkan ke Firebase"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">Tersalin!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-slate-700" />
+                    <span>Salin Domain</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Step by step instructions */}
+            <div className="bg-amber-100/60 rounded-xl p-3 space-y-1.5 text-slate-700">
+              <p className="font-bold text-slate-900 text-[11px] uppercase tracking-wider">
+                Cara Mengatasi:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed pl-1">
+                <li>
+                  Buka{' '}
+                  <a
+                    href="https://console.firebase.google.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-amber-800 font-bold underline inline-flex items-center gap-0.5"
+                  >
+                    Firebase Console <ExternalLink className="w-3 h-3" />
+                  </a>{' '}
+                  dan pilih project Firebase Anda.
+                </li>
+                <li>
+                  Buka menu <strong>Authentication</strong> &gt; tab <strong>Settings</strong> &gt; <strong>Authorized domains</strong>.
+                </li>
+                <li>
+                  Klik <strong>Add domain</strong>, tempelkan domain yang disalin di atas (<code className="bg-white/80 px-1 py-0.5 rounded font-mono text-[10px]">{currentHostname}</code>), lalu klik <strong>Save</strong>.
+                </li>
+                <li>Setelah disimpan, coba klik tombol login di bawah kembali.</li>
+              </ol>
+            </div>
+          </div>
+        ) : error ? (
           <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-start space-x-2">
             <div className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1.5 shrink-0" />
             <span>{error}</span>
           </div>
-        )}
+        ) : null}
 
         {/* Features preview (Bento Mini Grid) */}
         <div className="bg-amber-50/50 border border-amber-200/80 rounded-2xl p-4 mb-6 space-y-2.5">
@@ -105,3 +201,4 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, er
     </div>
   );
 };
+
