@@ -11,7 +11,12 @@ import {
   Check,
   ExternalLink,
   Globe,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  UserCheck,
 } from 'lucide-react';
+import defaultConfig from '../../firebase-applet-config.json';
 
 interface LoginScreenProps {
   onLogin: () => void;
@@ -21,10 +26,21 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, error }) => {
   const [copied, setCopied] = useState(false);
+  const [showOauthGuide, setShowOauthGuide] = useState(false);
   const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultConfig.projectId || 'gen-lang-client-0641006546';
+
   const isUnauthorizedDomain =
     error && (error.includes('unauthorized-domain') || error.includes('auth/unauthorized-domain'));
+
+  const isAccessDenied =
+    error &&
+    (error.includes('access_denied') ||
+      error.includes('403') ||
+      error.includes('verification process') ||
+      error.includes('test user') ||
+      error.includes('Testing'));
 
   const handleCopyDomain = () => {
     if (currentHostname) {
@@ -118,6 +134,51 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, er
                   Klik <strong>Add domain</strong>, tempelkan domain yang disalin di atas (<code className="bg-white/80 px-1 py-0.5 rounded font-mono text-[10px]">{currentHostname}</code>), lalu klik <strong>Save</strong>.
                 </li>
                 <li>Setelah disimpan, coba klik tombol login di bawah kembali.</li>
+              </ol>
+            </div>
+          </div>
+        ) : (isAccessDenied || showOauthGuide) ? (
+          <div className="mb-6 p-4 bg-amber-50/90 border border-amber-300 rounded-2xl text-slate-800 text-xs shadow-xs space-y-3">
+            <div className="flex items-start space-x-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-black text-slate-900 text-sm">
+                  Panduan Mode Testing (Pengujian) &amp; Test Users
+                </h3>
+                <p className="text-slate-600 mt-1 leading-relaxed">
+                  Dalam status <strong>Testing (Pengujian)</strong>, Google mewajibkan setiap akun yang ingin login didaftarkan ke daftar <strong>Test users</strong> (maksimal 100 akun).
+                </p>
+              </div>
+            </div>
+
+            {/* Langkah Utama: Daftarkan Test User */}
+            <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-2">
+              <p className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Cara Menambahkan Akun ke Test Users (Cukup Sekali):</span>
+              </p>
+              <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-slate-700 pl-1 leading-relaxed">
+                <li>
+                  Buka halaman konsol Google:{' '}
+                  <a
+                    href={`https://console.cloud.google.com/apis/credentials/consent?project=${projectId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-700 font-bold underline inline-flex items-center gap-0.5"
+                  >
+                    Google Cloud - OAuth Consent Screen <ExternalLink className="w-3 h-3" />
+                  </a>
+                </li>
+                <li>Pastikan status adalah <strong>Testing</strong> (jika saat ini *In production*, klik tombol <em>Back to testing</em>).</li>
+                <li>Gulir ke bawah ke bagian tabel <strong>Test users</strong> (Pengguna uji).</li>
+                <li>
+                  Klik tombol <strong>+ ADD USERS</strong>, ketikkan email Anda atau guru (misalnya:{' '}
+                  <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-[10px]">
+                    glanny.bolang@sekolahmakarios.id
+                  </code>
+                  ), lalu klik <strong>SAVE</strong>.
+                </li>
+                <li>Kembali ke web ini dan klik <strong>Masuk dengan Akun Google</strong>. Jika muncul layar <em>"Google hasn't verified this app"</em>, klik <strong>Continue / Lanjutkan</strong>.</li>
               </ol>
             </div>
           </div>
@@ -218,6 +279,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, er
               </a>
             </div>
           )}
+
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => setShowOauthGuide((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-amber-900 transition-colors font-semibold cursor-pointer"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+              <span>Bantuan: Akses Ditolak (Error 403 / Belum Diverifikasi)?</span>
+              {showOauthGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </div>
         </div>
 
         {/* Security footer */}

@@ -110,6 +110,22 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
       throw enhancedError;
     }
 
+    // 4. Access Denied / Error 403 / Test users helper
+    if (
+      error?.code === 'auth/access-denied' ||
+      error?.code === 'access_denied' ||
+      error?.message?.includes('access_denied') ||
+      error?.message?.includes('access-denied') ||
+      error?.message?.includes('403')
+    ) {
+      console.warn('Akses ditolak oleh Google OAuth (Error 403: access_denied / Test users).');
+      const deniedError = new Error(
+        'Akses Google diblokir (Error 403: access_denied). Akun Google belum terdaftar di Test Users atau aplikasi belum dipublikasikan di Google Cloud Console.'
+      );
+      (deniedError as any).code = 'auth/access-denied';
+      throw deniedError;
+    }
+
     console.error('Sign in error:', error);
     throw error;
   } finally {
