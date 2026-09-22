@@ -59,6 +59,57 @@ const INDONESIAN_MONTH_NAMES = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
+export const ALL_STATUS_OPTIONS = [
+  'ASSIGNED',
+  'MISSING',
+  'TURNED_IN',
+  'TURNED_IN_LATE',
+  'GRADED',
+  'RETURNED',
+  'CLEAR',
+  'UNFINISHED',
+];
+
+export const STATUS_LABELS: Record<string, string> = {
+  ASSIGNED: '⏳ Ditugaskan (Assigned)',
+  MISSING: '⚠️ Missing (Lewat Batas)',
+  TURNED_IN: '📥 Diserahkan (Turned In)',
+  TURNED_IN_LATE: '⏰ Diserahkan Terlambat (Late)',
+  GRADED: '✅ Sudah Dinilai (Graded)',
+  RETURNED: '↩️ Dikembalikan (Returned)',
+  RECLAIMED: '🟣 Ditarik Kembali (Reclaimed)',
+  CLEAR: '✨ Sudah Clear (Tuntas)',
+  UNFINISHED: '❌ Belum Selesai (Tunggakan)',
+};
+
+export const matchesTaskStatus = (r: FlattenedStudentTaskRow, statusKey: string): boolean => {
+  switch (statusKey) {
+    case 'ASSIGNED':
+      return r.taskStatus === 'ASSIGNED' || r.taskStatus === 'NOT_SUBMITTED';
+    case 'MISSING':
+    case 'OVERDUE':
+      return r.taskStatus === 'MISSING';
+    case 'TURNED_IN':
+      return r.taskStatus === 'TURNED_IN' || r.taskStatus === 'WAITING_GRADE';
+    case 'TURNED_IN_LATE':
+    case 'LATE':
+      return r.taskStatus === 'TURNED_IN_LATE' || Boolean(r.late);
+    case 'GRADED':
+      return r.taskStatus === 'GRADED';
+    case 'RETURNED':
+      return r.taskStatus === 'RETURNED';
+    case 'RECLAIMED':
+      return r.taskStatus === 'RECLAIMED';
+    case 'CLEAR':
+      return r.isClear;
+    case 'UNFINISHED':
+    case 'PENDING':
+      return !r.isClear;
+    default:
+      return false;
+  }
+};
+
 export interface MonthFilterOption {
   key: string;
   year: number;
@@ -75,7 +126,7 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
   const [monthScopeMode, setMonthScopeMode] = useState<'EXACT' | 'CUMULATIVE'>('EXACT');
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(ALL_STATUS_OPTIONS);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
@@ -312,89 +363,7 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
     });
   }, [records]);
 
-  // Filtered rows
-  const filteredRows = useMemo(() => {
-    return allFlattenedRows.filter((r) => {
-      if (selectedStudentId !== 'ALL' && r.studentId !== selectedStudentId) {
-        return false;
-      }
-
-      const matchesSearch =
-        r.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.studentEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.className.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.taskTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.dueDateStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.statusLabel.toLowerCase().includes(searchTerm.toLowerCase());
-
-      if (!matchesSearch) return false;
-
-      // Class Multi-Select filter (like Excel checkbox)
-      if (classOptions.length > 0 && !selectedClasses.includes(r.className)) {
-        return false;
-      }
-
-      // Course Multi-Select filter (like Excel checkbox)
-      if (courseOptions.length > 0 && !selectedCourses.includes(r.courseName)) {
-        return false;
-      }
-
-      // Month Filter (Bulan Tugas)
-      if (selectedMonth !== 'ALL') {
-        const [targetYearStr, targetMonthStr] = selectedMonth.split('-');
-        const targetYear = parseInt(targetYearStr, 10);
-        const targetMonth = parseInt(targetMonthStr, 10);
-
-        if (r.taskStatus === 'ALL_CLEARED') {
-          if (selectedStatus !== 'CLEAR' && selectedStatus !== 'ALL') return false;
-        } else {
-          const tYear = r.dueYear;
-          const tMonth = r.dueMonth;
-
-          if (tYear && tMonth) {
-            if (monthScopeMode === 'EXACT') {
-              if (tYear !== targetYear || tMonth !== targetMonth) return false;
-            } else {
-              // CUMULATIVE: due on or before target year and month
-              if (tYear > targetYear) return false;
-              if (tYear === targetYear && tMonth > targetMonth) return false;
-            }
-          } else {
-            // Task without date: in EXACT mode omit, in CUMULATIVE mode keep
-            if (monthScopeMode === 'EXACT') return false;
-          }
-        }
-      }
-
-      // Status filter with authentic Google Classroom statuses + Wakasek Kurikulum focus
-      if (selectedStatus === 'CLEAR' && !r.isClear) return false;
-      if (selectedStatus === 'PENDING' && r.isClear) return false;
-      if (selectedStatus === 'UNFINISHED' && r.isClear) return false;
-      if ((selectedStatus === 'OVERDUE' || selectedStatus === 'MISSING') && r.taskStatus !== 'MISSING') return false;
-      if ((selectedStatus === 'LATE' || selectedStatus === 'TURNED_IN_LATE') && r.taskStatus !== 'TURNED_IN_LATE' && !r.late) return false;
-      if (selectedStatus === 'ASSIGNED' && r.taskStatus !== 'ASSIGNED' && r.taskStatus !== 'NOT_SUBMITTED') return false;
-      if (selectedStatus === 'TURNED_IN' && r.taskStatus !== 'TURNED_IN' && r.taskStatus !== 'WAITING_GRADE') return false;
-      if (selectedStatus === 'GRADED' && r.taskStatus !== 'GRADED') return false;
-      if (selectedStatus === 'RETURNED' && r.taskStatus !== 'RETURNED') return false;
-      if (selectedStatus === 'RECLAIMED' && r.taskStatus !== 'RECLAIMED') return false;
-
-      return true;
-    });
-  }, [
-    allFlattenedRows,
-    searchTerm,
-    selectedClasses,
-    selectedCourses,
-    selectedMonth,
-    monthScopeMode,
-    selectedStatus,
-    selectedStudentId,
-    classOptions.length,
-    courseOptions.length,
-  ]);
-
-  // Statistics for Wakasek Kurikulum Quick Filter Pills (All Statuses)
+  // Statistics for Status Counts & Filter Badges (All Statuses)
   // Scoped to selected Classes, Courses, and Month
   const kurikulumStats = useMemo(() => {
     const baseRows = allFlattenedRows.filter((r) => {
@@ -459,6 +428,164 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
     classOptions.length,
     courseOptions.length,
   ]);
+
+  // Available status options including RECLAIMED if present
+  const statusOptions = useMemo(() => {
+    const list = [
+      'ASSIGNED',
+      'MISSING',
+      'TURNED_IN',
+      'TURNED_IN_LATE',
+      'GRADED',
+      'RETURNED',
+    ];
+    if (kurikulumStats.reclaimedCount > 0) {
+      list.push('RECLAIMED');
+    }
+    list.push('CLEAR', 'UNFINISHED');
+    return list;
+  }, [kurikulumStats.reclaimedCount]);
+
+  // Counts of rows per status for Excel dropdown badges
+  const statusCounts = useMemo<Record<string, number>>(() => ({
+    ASSIGNED: kurikulumStats.assignedCount,
+    MISSING: kurikulumStats.missingCount,
+    TURNED_IN: kurikulumStats.turnedInCount,
+    TURNED_IN_LATE: kurikulumStats.lateCount,
+    GRADED: kurikulumStats.gradedCount,
+    RETURNED: kurikulumStats.returnedCount,
+    RECLAIMED: kurikulumStats.reclaimedCount,
+    CLEAR: kurikulumStats.clearCount,
+    UNFINISHED: kurikulumStats.unfinishedCount,
+  }), [kurikulumStats]);
+
+  // Synchronize status selections with available options
+  useEffect(() => {
+    if (statusOptions.length > 0) {
+      setSelectedStatuses((prev) => {
+        if (prev.length === 0) return statusOptions;
+        const valid = prev.filter((s) => statusOptions.includes(s));
+        return valid.length > 0 ? valid : statusOptions;
+      });
+    }
+  }, [statusOptions]);
+
+  // Filtered rows with multi-select status support
+  const filteredRows = useMemo(() => {
+    return allFlattenedRows.filter((r) => {
+      if (selectedStudentId !== 'ALL' && r.studentId !== selectedStudentId) {
+        return false;
+      }
+
+      const matchesSearch =
+        r.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.studentEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.className.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.taskTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.dueDateStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.statusLabel.toLowerCase().includes(searchTerm.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      // Class Multi-Select filter (like Excel checkbox)
+      if (classOptions.length > 0 && !selectedClasses.includes(r.className)) {
+        return false;
+      }
+
+      // Course Multi-Select filter (like Excel checkbox)
+      if (courseOptions.length > 0 && !selectedCourses.includes(r.courseName)) {
+        return false;
+      }
+
+      // Month Filter (Bulan Tugas)
+      if (selectedMonth !== 'ALL') {
+        const [targetYearStr, targetMonthStr] = selectedMonth.split('-');
+        const targetYear = parseInt(targetYearStr, 10);
+        const targetMonth = parseInt(targetMonthStr, 10);
+
+        if (r.taskStatus === 'ALL_CLEARED') {
+          if (selectedStatuses.length < statusOptions.length && !selectedStatuses.includes('CLEAR')) {
+            return false;
+          }
+        } else {
+          const tYear = r.dueYear;
+          const tMonth = r.dueMonth;
+
+          if (tYear && tMonth) {
+            if (monthScopeMode === 'EXACT') {
+              if (tYear !== targetYear || tMonth !== targetMonth) return false;
+            } else {
+              // CUMULATIVE: due on or before target year and month
+              if (tYear > targetYear) return false;
+              if (tYear === targetYear && tMonth > targetMonth) return false;
+            }
+          } else {
+            // Task without date: in EXACT mode omit, in CUMULATIVE mode keep
+            if (monthScopeMode === 'EXACT') return false;
+          }
+        }
+      }
+
+      // Status Multi-Select filter (like Excel checkbox)
+      if (statusOptions.length > 0) {
+        if (selectedStatuses.length === 0) {
+          return false;
+        }
+        if (selectedStatuses.length < statusOptions.length) {
+          const matched = selectedStatuses.some((stKey) => matchesTaskStatus(r, stKey));
+          if (!matched) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [
+    allFlattenedRows,
+    searchTerm,
+    selectedClasses,
+    selectedCourses,
+    selectedMonth,
+    monthScopeMode,
+    selectedStatuses,
+    statusOptions.length,
+    selectedStudentId,
+    classOptions.length,
+    courseOptions.length,
+  ]);
+
+  // Check if any filter is active
+  const isAnyFilterActive = useMemo(() => {
+    return (
+      selectedMonth !== 'ALL' ||
+      selectedStatuses.length < statusOptions.length ||
+      selectedClasses.length < classOptions.length ||
+      selectedCourses.length < courseOptions.length ||
+      searchTerm.trim() !== '' ||
+      selectedStudentId !== 'ALL'
+    );
+  }, [
+    selectedMonth,
+    selectedStatuses.length,
+    statusOptions.length,
+    selectedClasses.length,
+    classOptions.length,
+    selectedCourses.length,
+    courseOptions.length,
+    searchTerm,
+    selectedStudentId,
+  ]);
+
+  // Reset all filters back to default
+  const handleResetAllFilters = () => {
+    setSelectedMonth('ALL');
+    setSelectedStatuses(statusOptions);
+    setSelectedClasses(classOptions);
+    setSelectedCourses(courseOptions);
+    setSearchTerm('');
+    setSelectedStudentId('ALL');
+    setCurrentPage(1);
+  };
 
   // Filtered source records (for PDF generator)
   const filteredSourceRecords = useMemo(() => {
@@ -535,22 +662,9 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
         filterInfoParts.push(`Bulan: ${found.label} (${monthScopeMode === 'EXACT' ? 'Tepat Bulan' : 'Kumulatif'})`);
       }
     }
-    if (selectedStatus !== 'ALL') {
-      const statusLabels: Record<string, string> = {
-        ASSIGNED: 'Ditugaskan',
-        MISSING: 'Missing (Lewat Batas)',
-        OVERDUE: 'Overdue (Lewat Batas)',
-        TURNED_IN: 'Diserahkan',
-        TURNED_IN_LATE: 'Diserahkan Terlambat',
-        LATE: 'Diserahkan Terlambat',
-        GRADED: 'Sudah Dinilai',
-        RETURNED: 'Dikembalikan',
-        RECLAIMED: 'Ditarik Siswa',
-        CLEAR: 'Sudah Clear',
-        UNFINISHED: 'Belum Selesai',
-        PENDING: 'Belum Selesai',
-      };
-      filterInfoParts.push(`Status: ${statusLabels[selectedStatus] || selectedStatus}`);
+    if (selectedStatuses.length < statusOptions.length) {
+      const activeLabels = selectedStatuses.map((s) => STATUS_LABELS[s] || s);
+      filterInfoParts.push(`Status: ${activeLabels.join(', ')}`);
     }
     const filterInfo = filterInfoParts.join(' | ');
     exportStudentsToPDF(filteredSourceRecords, filterInfo);
@@ -776,314 +890,35 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Filter Status Tugas</span>
-              {selectedStatus !== 'ALL' && (
-                <span className="text-[10px] text-amber-600 font-extrabold normal-case bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                  Filter Aktif
-                </span>
-              )}
-            </label>
-            <select
-              id="filter-student-status"
-              value={selectedStatus}
-              onChange={(e) => {
-                setSelectedStatus(e.target.value);
+            <ExcelMultiSelectFilter
+              id="filter-excel-status"
+              label="Filter Status Tugas"
+              options={statusOptions}
+              selectedValues={selectedStatuses}
+              onChange={(vals) => {
+                setSelectedStatuses(vals);
                 setCurrentPage(1);
               }}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-semibold focus:outline-none focus:border-amber-500 focus:bg-white cursor-pointer shadow-2xs"
-            >
-              <option value="ALL">Semua Status Tugas ({kurikulumStats.totalTasks})</option>
-              <option value="ASSIGNED">⏳ Ditugaskan / Assigned ({kurikulumStats.assignedCount})</option>
-              <option value="MISSING">⚠️ Tidak Ada / Missing - Lewat Batas ({kurikulumStats.missingCount})</option>
-              <option value="TURNED_IN">📥 Diserahkan / Turned In ({kurikulumStats.turnedInCount})</option>
-              <option value="TURNED_IN_LATE">⏰ Diserahkan Terlambat / Late ({kurikulumStats.lateCount})</option>
-              <option value="GRADED">✅ Sudah Dinilai / Graded ({kurikulumStats.gradedCount})</option>
-              <option value="RETURNED">↩️ Dikembalikan / Returned ({kurikulumStats.returnedCount})</option>
-              {kurikulumStats.reclaimedCount > 0 && (
-                <option value="RECLAIMED">🟣 Ditarik Kembali / Reclaimed ({kurikulumStats.reclaimedCount})</option>
-              )}
-              <option value="CLEAR">✨ Sudah Clear / Tuntas ({kurikulumStats.clearCount})</option>
-              <option value="UNFINISHED">❌ Belum Selesai / Semua Tunggakan ({kurikulumStats.unfinishedCount})</option>
-            </select>
+              counts={statusCounts}
+              optionLabels={STATUS_LABELS}
+              placeholder="Cari status tugas..."
+            />
           </div>
         </div>
 
-        {/* Display ALL Status Types as Quick Filter Chips */}
-        <div className="pt-3 border-t border-amber-100 flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1 flex items-center space-x-1">
-            <span>Filter Status:</span>
-          </span>
-
-          {/* 1. Semua Status */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus('ALL');
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedStatus === 'ALL'
-                ? 'bg-slate-900 text-white shadow-xs ring-2 ring-slate-900/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-            }`}
-          >
-            <span>Semua Status</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                selectedStatus === 'ALL' ? 'bg-slate-800 text-[#FFC800]' : 'bg-slate-200 text-slate-700'
-              }`}
-            >
-              {kurikulumStats.totalTasks}
-            </span>
-          </button>
-
-          {/* 2. Ditugaskan / Assigned */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus('ASSIGNED');
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedStatus === 'ASSIGNED'
-                ? 'bg-slate-700 text-white shadow-xs ring-2 ring-slate-700/30'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-            }`}
-            title="Tugas yang diberikan namun belum diserahkan oleh siswa"
-          >
-            <span>⏳ Ditugaskan</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                selectedStatus === 'ASSIGNED' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'
-              }`}
-            >
-              {kurikulumStats.assignedCount}
-            </span>
-          </button>
-
-          {/* 3. Missing / Overdue */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus('MISSING');
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedStatus === 'MISSING' || selectedStatus === 'OVERDUE'
-                ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-600/30'
-                : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-            }`}
-            title="Tugas yang belum diserahkan dan sudah melewati batas waktu (Missing)"
-          >
-            <span>⚠️ Missing (Lewat Batas)</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                selectedStatus === 'MISSING' || selectedStatus === 'OVERDUE'
-                  ? 'bg-rose-700 text-white'
-                  : 'bg-rose-200 text-rose-800'
-              }`}
-            >
-              {kurikulumStats.missingCount}
-            </span>
-          </button>
-
-          {/* 4. Diserahkan / Turned In */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus('TURNED_IN');
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedStatus === 'TURNED_IN'
-                ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-600/30'
-                : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
-            }`}
-            title="Tugas yang sudah diserahkan siswa dan sedang menunggu penilaian guru"
-          >
-            <span>📥 Diserahkan</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                selectedStatus === 'TURNED_IN' ? 'bg-blue-700 text-white' : 'bg-blue-200 text-blue-800'
-              }`}
-            >
-              {kurikulumStats.turnedInCount}
-            </span>
-          </button>
-
-          {/* 5. Diserahkan Terlambat / Late */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus('TURNED_IN_LATE');
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedStatus === 'TURNED_IN_LATE' || selectedStatus === 'LATE'
-                ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-600/30'
-                : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
-            }`}
-            title="Tugas yang diserahkan siswa melewati batas waktu deadline"
-          >
-            <span>⏰ Diserahkan Terlambat</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                selectedStatus === 'TURNED_IN_LATE' || selectedStatus === 'LATE'
-                  ? 'bg-amber-700 text-white'
-                  : 'bg-amber-200 text-amber-900'
-              }`}
-            >
-              {kurikulumStats.lateCount}
-            </span>
-          </button>
-
-          {/* 6. Sudah Dinilai / Graded */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus('GRADED');
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedStatus === 'GRADED'
-                ? 'bg-emerald-700 text-white shadow-xs ring-2 ring-emerald-700/30'
-                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
-            }`}
-            title="Tugas yang telah selesai diperiksa dan diberi nilai oleh guru"
-          >
-            <span>✅ Sudah Dinilai</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                selectedStatus === 'GRADED' ? 'bg-emerald-800 text-white' : 'bg-emerald-200 text-emerald-900'
-              }`}
-            >
-              {kurikulumStats.gradedCount}
-            </span>
-          </button>
-
-          {/* 7. Dikembalikan / Returned */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus('RETURNED');
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedStatus === 'RETURNED'
-                ? 'bg-teal-700 text-white shadow-xs ring-2 ring-teal-700/30'
-                : 'bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200'
-            }`}
-            title="Tugas yang dikembalikan oleh guru"
-          >
-            <span>↩️ Dikembalikan</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                selectedStatus === 'RETURNED' ? 'bg-teal-800 text-white' : 'bg-teal-200 text-teal-900'
-              }`}
-            >
-              {kurikulumStats.returnedCount}
-            </span>
-          </button>
-
-          {/* 8. Ditarik Kembali / Reclaimed (if any) */}
-          {kurikulumStats.reclaimedCount > 0 && (
+        {/* Reset All Filters button if any filter is active */}
+        {isAnyFilterActive && (
+          <div className="pt-2 flex justify-end">
             <button
               type="button"
-              onClick={() => {
-                setSelectedStatus('RECLAIMED');
-                setCurrentPage(1);
-              }}
-              className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                selectedStatus === 'RECLAIMED'
-                  ? 'bg-purple-700 text-white shadow-xs ring-2 ring-purple-700/30'
-                  : 'bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200'
-              }`}
-              title="Tugas yang dibatalkan penyerahannya oleh siswa (unsubmitted)"
+              id="btn-reset-filters"
+              onClick={handleResetAllFilters}
+              className="text-xs font-bold text-amber-700 hover:text-amber-900 hover:underline cursor-pointer inline-flex items-center space-x-1"
             >
-              <span>🟣 Ditarik Kembali</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                  selectedStatus === 'RECLAIMED' ? 'bg-purple-800 text-white' : 'bg-purple-200 text-purple-900'
-                }`}
-              >
-                {kurikulumStats.reclaimedCount}
-              </span>
+              <span>Reset Semua Filter</span>
             </button>
-          )}
-
-          {/* 9. Sudah Clear (Tuntas) */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus('CLEAR');
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedStatus === 'CLEAR'
-                ? 'bg-green-700 text-white shadow-xs ring-2 ring-green-700/30'
-                : 'bg-green-50 hover:bg-green-100 text-green-800 border border-green-200'
-            }`}
-            title="Siswa yang sudah menuntaskan semua tugas dan dinyatakan Clear"
-          >
-            <span>✨ Sudah Clear</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                selectedStatus === 'CLEAR' ? 'bg-green-800 text-white' : 'bg-green-200 text-green-900'
-              }`}
-            >
-              {kurikulumStats.clearCount}
-            </span>
-          </button>
-
-          {/* 10. Belum Selesai (Semua Tunggakan) */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus('UNFINISHED');
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedStatus === 'UNFINISHED'
-                ? 'bg-rose-800 text-white shadow-xs ring-2 ring-rose-800/30'
-                : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200'
-            }`}
-            title="Semua tugas yang masih menjadi beban tunggakan siswa"
-          >
-            <span>❌ Belum Selesai</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                selectedStatus === 'UNFINISHED' ? 'bg-rose-900 text-white' : 'bg-rose-200 text-rose-900'
-              }`}
-            >
-              {kurikulumStats.unfinishedCount}
-            </span>
-          </button>
-
-          {/* Reset Filters button */}
-          {(selectedMonth !== 'ALL' ||
-            selectedStatus !== 'ALL' ||
-            selectedClasses.length < classOptions.length ||
-            selectedCourses.length < courseOptions.length ||
-            searchTerm ||
-            selectedStudentId !== 'ALL') && (
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedMonth('ALL');
-                setSelectedStatus('ALL');
-                setSelectedClasses(classOptions);
-                setSelectedCourses(courseOptions);
-                setSearchTerm('');
-                setSelectedStudentId('ALL');
-                setCurrentPage(1);
-              }}
-              className="ml-auto text-xs font-bold text-slate-500 hover:text-slate-800 underline cursor-pointer"
-            >
-              Reset Semua Filter
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Main Bento Table Card (Upper Left Aligned) */}

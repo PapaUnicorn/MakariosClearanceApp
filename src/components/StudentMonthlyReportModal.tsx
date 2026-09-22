@@ -170,56 +170,54 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
           </div>
         </div>
 
-        {/* Printable Report Document (Styled with HTML & Tailwind CSS - Maybank Golden Theme) */}
+        {/* Printable Report Document (Styled with HTML & Tailwind CSS - Maybank Golden Theme - Strictly 10pt Font) */}
         <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-amber-50/30">
           <div
             id="printable-report-sheet"
-            className="bg-white p-6 sm:p-10 border border-slate-200 rounded-xl shadow-xs max-w-3xl mx-auto font-sans text-slate-900"
+            style={{ fontSize: '10pt' }}
+            className="bg-white p-6 sm:p-10 border border-slate-200 rounded-xl shadow-xs max-w-3xl mx-auto font-sans text-slate-900 text-[10pt]"
           >
-            {/* Header section with Maybank Yellow full-width banner */}
+            {/* Header section with Maybank Yellow banner */}
             <div className="mb-6">
               {/* Maybank Yellow Banner for School Titles */}
-              <div className="bg-[#FFC800] text-slate-950 px-4 py-4 rounded-xl text-center shadow-xs space-y-0.5 border border-amber-400">
-                <h1 className="text-sm sm:text-base font-extrabold tracking-widest uppercase">
-                  MAKARIOS CHRISTIAN SCHOOL
+              <div className="bg-[#FFC800] text-slate-950 px-4 py-3 rounded-xl text-center shadow-xs space-y-1 border border-amber-400">
+                <h1 className="text-[10pt] font-black tracking-wide uppercase">
+                  {schoolLevel ? `MAKARIOS ${schoolLevel.toUpperCase()}` : 'MAKARIOS JUNIOR HIGH SCHOOL'}
                 </h1>
-                <h2 className="text-lg sm:text-xl font-black tracking-tight">
-                  {schoolLevel}
+                <h2 className="text-[10pt] font-bold">
+                  Student Monthly Learning Progress Report
                 </h2>
-                <h3 className="text-xs sm:text-sm font-black tracking-wider uppercase pt-0.5">
-                  STUDENT MONTHLY LEARNING PROGRESS REPORT
-                </h3>
               </div>
 
-              {/* Student Name (Blue) & Month (Black) - Strictly nothing else */}
-              <div className="text-center pt-5 space-y-1">
-                <div className="text-xl sm:text-2xl font-black text-blue-600 tracking-wide uppercase">
+              {/* Student Name (Blue) & Month (Black) */}
+              <div className="text-center pt-4 space-y-1">
+                <div className="text-[10pt] font-black text-blue-600 tracking-wide uppercase">
                   {studentName}
                 </div>
-                <div className="text-sm sm:text-base font-black text-slate-950 tracking-wider">
+                <div className="text-[10pt] font-bold text-slate-950 tracking-normal">
                   {currentMonthStr}
                 </div>
               </div>
             </div>
 
-            {/* The Report Table with Maybank Yellow Header */}
+            {/* The Report Table with Maybank Yellow Header - Strictly 10pt */}
             <div className="border border-slate-300 rounded-lg overflow-hidden shadow-2xs">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse text-[10pt]">
                 <thead>
                   {/* Maybank Theme Distinct Table Header */}
-                  <tr className="bg-[#FFC800] text-slate-950 text-xs uppercase tracking-wider font-black divide-x divide-amber-500/40 border-b border-amber-500">
-                    <th className="py-3 px-3 w-[8%] text-center align-middle">No.</th>
-                    <th className="py-3 px-3.5 w-[24%] text-left align-middle">Subject</th>
-                    <th className="py-3 px-3 w-[14%] text-center align-middle leading-tight">
+                  <tr className="bg-[#FFC800] text-slate-950 text-[10pt] uppercase tracking-wider font-black divide-x divide-amber-500/40 border-b border-amber-500">
+                    <th className="py-2.5 px-3 w-[8%] text-center align-middle text-[10pt]">No.</th>
+                    <th className="py-2.5 px-3.5 w-[24%] text-left align-middle text-[10pt]">Subject</th>
+                    <th className="py-2.5 px-3 w-[14%] text-center align-middle leading-tight text-[10pt]">
                       Overall<br />Score
                     </th>
-                    <th className="py-3 px-4 w-[54%] text-left align-middle">Missing Assignments</th>
+                    <th className="py-2.5 px-4 w-[54%] text-left align-middle text-[10pt]">Missing Assignments</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 text-xs bg-white">
+                <tbody className="divide-y divide-slate-200 text-[10pt] bg-white">
                   {records.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-slate-400 italic">
+                      <td colSpan={4} className="py-8 text-center text-slate-400 italic text-[10pt]">
                         Tidak ada data mata pelajaran untuk siswa ini.
                       </td>
                     </tr>
@@ -261,47 +259,47 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
                           }`}
                         >
                           {/* 1. No. */}
-                          <td className="py-3 px-3 text-center font-bold text-slate-700 align-top">
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-700 align-top text-[10pt]">
                             {idx + 1}.
                           </td>
 
                           {/* 2. Compact Subject */}
-                          <td className="py-3 px-3.5 font-bold text-slate-900 align-top leading-snug">
+                          <td className="py-2.5 px-3.5 font-bold text-slate-900 align-top leading-snug text-[10pt]">
                             {rec.courseName}
                           </td>
 
                           {/* 3. Compact Overall Score */}
-                          <td className="py-3 px-3 text-center align-top">
-                            <span className="inline-block px-2.5 py-0.5 rounded-md font-black text-slate-950 bg-amber-100/80 border border-amber-200 text-xs sm:text-sm">
+                          <td className="py-2.5 px-3 text-center align-top text-[10pt]">
+                            <span className="inline-block px-2.5 py-0.5 rounded-md font-bold text-slate-950 bg-amber-100/80 border border-amber-200 text-[10pt]">
                               {overallScoreDisplay}
                             </span>
                           </td>
 
-                          {/* 4. Expanded Missing Assignments (List format without bullets / numbering) */}
-                          <td className="py-3 px-4 align-top">
+                          {/* 4. Expanded Missing Assignments */}
+                          <td className="py-2.5 px-4 align-top text-[10pt]">
                             {missingTasks.length === 0 ? (
-                              <div className="text-emerald-700 font-semibold italic flex items-center space-x-1.5">
+                              <div className="text-emerald-700 font-semibold italic flex items-center space-x-1.5 text-[10pt]">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                                 <span>None</span>
                               </div>
                             ) : (
-                              <div className="flex flex-col space-y-2">
+                              <div className="flex flex-col space-y-2 text-[10pt]">
                                 {missingTasks.map((t, tIdx) => {
                                   const statusInfo = getTaskStatusInfo(t.status, t.assignedGrade, t.maxPoints);
                                   return (
                                     <div
                                       key={t.courseWorkId || tIdx}
-                                      className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 shadow-2xs"
+                                      className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 shadow-2xs text-[10pt]"
                                     >
                                       <div className="flex items-start justify-between gap-2">
-                                        <div className="font-bold text-xs text-slate-900 leading-snug">
+                                        <div className="font-bold text-[10pt] text-slate-900 leading-snug">
                                           • {t.title}
                                         </div>
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${statusInfo.badgeClass}`}>
+                                        <span className={`text-[10pt] font-bold px-2 py-0.5 rounded border shrink-0 ${statusInfo.badgeClass}`}>
                                           {statusInfo.label}
                                         </span>
                                       </div>
-                                      <div className="text-[11px] text-slate-500 font-medium mt-1 pl-2.5">
+                                      <div className="text-[10pt] text-slate-500 font-medium mt-1 pl-2.5">
                                         Deadline: <span className="text-slate-700 font-semibold">{t.dueDateStr && t.dueDateStr !== 'Tanpa Batas Waktu' ? t.dueDateStr : 'Tanpa batas waktu'}</span>
                                       </div>
                                     </div>
@@ -318,20 +316,20 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
               </table>
             </div>
 
-            {/* Report Footer / Signature Area & Automatic Print Notice */}
-            <div className="report-footer-signature mt-10 pt-4 border-t border-slate-200 flex justify-between items-end text-xs text-slate-500">
+            {/* Report Footer / Signature Area & Automatic Print Notice - Strictly 10pt */}
+            <div className="report-footer-signature mt-8 pt-4 border-t border-slate-200 flex justify-between items-end text-[10pt] text-slate-500">
               <div>
-                <p className="italic font-medium text-slate-600">
+                <p className="italic font-medium text-slate-600 text-[10pt]">
                   Dicetak secara otomatis melalui Makarios Clearance App.
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-[10pt] text-slate-400 mt-0.5">
                   Tanggal Cetak: {now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </div>
-              <div className="text-center w-44">
-                <p className="font-bold text-slate-900 mb-12">Wali Kelas / Guru</p>
+              <div className="text-center w-48">
+                <p className="font-bold text-slate-900 mb-12 text-[10pt]">Wali Kelas / Guru</p>
                 <div className="border-b border-slate-400 mb-1"></div>
-                <p className="text-[11px] text-slate-400 font-medium">( ..................................................... )</p>
+                <p className="text-[10pt] text-slate-400 font-medium">( ..................................................... )</p>
               </div>
             </div>
           </div>

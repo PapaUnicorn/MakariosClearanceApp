@@ -134,19 +134,19 @@ export async function exportStudentMonthlyReportDocx(
         // 1. Task Title & Status (Top line)
         missingParagraphs.push(
           new Paragraph({
-            spacing: { before: tIdx > 0 ? 120 : 0, after: 20 },
+            spacing: { before: tIdx > 0 ? 100 : 0, after: 20 },
             children: [
               new TextRun({
                 text: `• ${task.title} `,
                 bold: true,
-                size: 20,
+                size: 20, // 10pt
                 color: '0F172A',
                 font: 'Calibri',
               }),
               new TextRun({
                 text: `(${statusInfo.label})`,
                 bold: true,
-                size: 18,
+                size: 20, // 10pt
                 color: 'E11D48',
                 font: 'Calibri',
               }),
@@ -157,11 +157,11 @@ export async function exportStudentMonthlyReportDocx(
         // 2. Deadline (Bottom line)
         missingParagraphs.push(
           new Paragraph({
-            spacing: { after: 100 },
+            spacing: { after: 80 },
             children: [
               new TextRun({
                 text: `    Deadline: ${dueText}`,
-                size: 18,
+                size: 20, // 10pt
                 color: '64748B',
                 font: 'Calibri',
               }),
@@ -201,7 +201,7 @@ export async function exportStudentMonthlyReportDocx(
                 children: [
                   new TextRun({
                     text: `${index + 1}.`,
-                    size: 20,
+                    size: 20, // 10pt
                     font: 'Calibri',
                   }),
                 ],
@@ -216,7 +216,7 @@ export async function exportStudentMonthlyReportDocx(
                   new TextRun({
                     text: record.courseName,
                     bold: true,
-                    size: 20,
+                    size: 20, // 10pt
                     font: 'Calibri',
                   }),
                 ],
@@ -232,7 +232,7 @@ export async function exportStudentMonthlyReportDocx(
                   new TextRun({
                     text: overallScoreDisplay,
                     bold: true,
-                    size: 22,
+                    size: 20, // 10pt
                     font: 'Calibri',
                   }),
                 ],
@@ -273,7 +273,7 @@ export async function exportStudentMonthlyReportDocx(
                   new TextRun({
                     text: 'Dicetak secara otomatis melalui Makarios Clearance App.',
                     italics: true,
-                    size: 18,
+                    size: 20, // 10pt
                     color: '64748B',
                     font: 'Calibri',
                   }),
@@ -283,7 +283,7 @@ export async function exportStudentMonthlyReportDocx(
                 children: [
                   new TextRun({
                     text: `Tanggal Cetak: ${now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`,
-                    size: 18,
+                    size: 20, // 10pt
                     color: '94A3B8',
                     font: 'Calibri',
                   }),
@@ -303,7 +303,7 @@ export async function exportStudentMonthlyReportDocx(
                   new TextRun({
                     text: 'Wali Kelas / Guru',
                     bold: true,
-                    size: 20,
+                    size: 20, // 10pt
                     color: '0F172A',
                     font: 'Calibri',
                   }),
@@ -317,7 +317,7 @@ export async function exportStudentMonthlyReportDocx(
                 children: [
                   new TextRun({
                     text: '( ..................................................... )',
-                    size: 18,
+                    size: 20, // 10pt
                     color: '64748B',
                     font: 'Calibri',
                   }),
@@ -354,9 +354,9 @@ export async function exportStudentMonthlyReportDocx(
                 alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text: 'MAKARIOS CHRISTIAN SCHOOL',
+                    text: schoolLevel ? `MAKARIOS ${schoolLevel.toUpperCase()}` : 'MAKARIOS JUNIOR HIGH SCHOOL',
                     bold: true,
-                    size: 24,
+                    size: 20, // 10pt
                     color: '0F172A',
                     font: 'Calibri',
                   }),
@@ -366,21 +366,9 @@ export async function exportStudentMonthlyReportDocx(
                 alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text: schoolLevel.toUpperCase(),
+                    text: 'Student Monthly Learning Progress Report',
                     bold: true,
-                    size: 30,
-                    color: '0F172A',
-                    font: 'Calibri',
-                  }),
-                ],
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: 'STUDENT MONTHLY LEARNING PROGRESS REPORT',
-                    bold: true,
-                    size: 20,
+                    size: 20, // 10pt
                     color: '0F172A',
                     font: 'Calibri',
                   }),
@@ -412,7 +400,7 @@ export async function exportStudentMonthlyReportDocx(
 
           new Paragraph({ text: '' }), // Spacer
 
-          // Student Name (Blue)
+          // Student Name (Blue) - 10pt
           new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [
@@ -420,13 +408,13 @@ export async function exportStudentMonthlyReportDocx(
                 text: studentName.toUpperCase(),
                 bold: true,
                 color: '2563EB', // Blue
-                size: 28,
+                size: 20, // 10pt
                 font: 'Calibri',
               }),
             ],
           }),
 
-          // Month (Black)
+          // Month (Black) - 10pt
           new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [
@@ -434,7 +422,7 @@ export async function exportStudentMonthlyReportDocx(
                 text: currentMonth,
                 bold: true,
                 color: '0F172A', // Black
-                size: 22,
+                size: 20, // 10pt
                 font: 'Calibri',
               }),
             ],

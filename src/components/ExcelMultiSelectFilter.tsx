@@ -9,6 +9,7 @@ interface ExcelMultiSelectFilterProps {
   onChange: (selected: string[]) => void;
   counts?: Record<string, number>;
   placeholder?: string;
+  optionLabels?: Record<string, string>;
 }
 
 export const ExcelMultiSelectFilter: React.FC<ExcelMultiSelectFilterProps> = ({
@@ -19,6 +20,7 @@ export const ExcelMultiSelectFilter: React.FC<ExcelMultiSelectFilterProps> = ({
   onChange,
   counts = {},
   placeholder = 'Cari...',
+  optionLabels,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,8 +44,12 @@ export const ExcelMultiSelectFilter: React.FC<ExcelMultiSelectFilterProps> = ({
   // Filtered options based on search term inside popover
   const filteredOptions = useMemo(() => {
     if (!searchTerm.trim()) return options;
-    return options.filter((opt) => opt.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [options, searchTerm]);
+    const term = searchTerm.toLowerCase();
+    return options.filter((opt) => {
+      const labelText = optionLabels?.[opt] || opt;
+      return opt.toLowerCase().includes(term) || labelText.toLowerCase().includes(term);
+    });
+  }, [options, searchTerm, optionLabels]);
 
   // Are all options currently selected?
   const allSelected = useMemo(() => {
@@ -95,10 +101,11 @@ export const ExcelMultiSelectFilter: React.FC<ExcelMultiSelectFilterProps> = ({
       return `Semua (${options.length})`;
     }
     if (selectedValues.length === 1) {
-      return selectedValues[0];
+      const singleKey = selectedValues[0];
+      return optionLabels?.[singleKey] || singleKey;
     }
     return `${selectedValues.length} Dipilih`;
-  }, [selectedValues, options.length, allSelected]);
+  }, [selectedValues, options.length, allSelected, optionLabels]);
 
   const isFiltered = !allSelected && selectedValues.length < options.length;
 
@@ -218,7 +225,7 @@ export const ExcelMultiSelectFilter: React.FC<ExcelMultiSelectFilterProps> = ({
                             : 'font-medium text-slate-700 group-hover:text-slate-900'
                         }`}
                       >
-                        {opt}
+                        {optionLabels?.[opt] || opt}
                       </span>
                     </div>
 

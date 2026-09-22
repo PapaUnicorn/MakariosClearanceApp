@@ -38,33 +38,33 @@ export function exportStudentMonthlyProgressReportPDF(
 
   const pageWidth = doc.internal.pageSize.width;
 
-  // 1. Maybank Yellow Header Banner for School Titles
+  // 1. Maybank Yellow Header Banner for School Titles - 10pt font
+  const bannerY = 30;
+  const bannerHeight = 44;
   doc.setFillColor(255, 200, 0); // Maybank Yellow (#FFC800)
-  doc.roundedRect(40, 30, pageWidth - 80, 56, 4, 4, 'F');
+  doc.roundedRect(40, bannerY, pageWidth - 80, bannerHeight, 4, 4, 'F');
 
   // Text inside Yellow Banner
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42); // Slate 900 / Black
+  doc.setFontSize(10); // Strictly 10pt
 
-  doc.setFontSize(11);
-  doc.text('MAKARIOS CHRISTIAN SCHOOL', pageWidth / 2, 46, { align: 'center' });
+  const schoolTitle = schoolLevel ? `MAKARIOS ${schoolLevel.toUpperCase()}` : 'MAKARIOS JUNIOR HIGH SCHOOL';
+  doc.text(schoolTitle, pageWidth / 2, bannerY + 17, { align: 'center' });
+  doc.text('Student Monthly Learning Progress Report', pageWidth / 2, bannerY + 31, { align: 'center' });
 
-  doc.setFontSize(14);
-  doc.text(schoolLevel.toUpperCase(), pageWidth / 2, 62, { align: 'center' });
-
-  doc.setFontSize(10);
-  doc.text('STUDENT MONTHLY LEARNING PROGRESS REPORT', pageWidth / 2, 77, { align: 'center' });
-
-  // 2. Student Name (Blue) & Month (Black) below yellow banner - strictly nothing else
-  doc.setFontSize(14);
+  // 2. Student Name (Blue) & Month (Black) below yellow banner - strictly 10pt
+  const nameY = bannerY + bannerHeight + 18;
+  doc.setFontSize(10); // Strictly 10pt
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(37, 99, 235); // Blue 600
-  doc.text(studentName.toUpperCase(), pageWidth / 2, 106, { align: 'center' });
+  doc.text(studentName.toUpperCase(), pageWidth / 2, nameY, { align: 'center' });
 
-  doc.setFontSize(11);
+  const monthY = nameY + 15;
+  doc.setFontSize(10); // Strictly 10pt
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42); // Black
-  doc.text(currentMonth, pageWidth / 2, 122, { align: 'center' });
+  doc.text(currentMonth, pageWidth / 2, monthY, { align: 'center' });
 
   // Prepare table rows: No. | Subject | Overall Score | Missing Assignments
   const tableData = records.map((record, index) => {
@@ -109,7 +109,7 @@ export function exportStudentMonthlyProgressReportPDF(
   });
 
   autoTable(doc, {
-    startY: 136,
+    startY: monthY + 16,
     head: [['No.', 'Subject', 'Overall\nScore', 'Missing Assignments']],
     body: tableData,
     theme: 'grid',
@@ -124,10 +124,10 @@ export function exportStudentMonthlyProgressReportPDF(
       valign: 'middle',
       lineColor: [202, 138, 4], // Amber 600 border
       lineWidth: 1,
-      cellPadding: 8,
+      cellPadding: 7,
     },
     styles: {
-      fontSize: 9,
+      fontSize: 10,
       cellPadding: 7,
       overflow: 'linebreak',
       valign: 'top',
@@ -140,10 +140,10 @@ export function exportStudentMonthlyProgressReportPDF(
       fillColor: [255, 251, 235], // Warm amber-50 light background
     },
     columnStyles: {
-      0: { cellWidth: 30, halign: 'center', valign: 'top' },
-      1: { cellWidth: 125, halign: 'left', valign: 'top', fontStyle: 'bold' },
+      0: { cellWidth: 30, halign: 'center', valign: 'top', fontSize: 10 },
+      1: { cellWidth: 125, halign: 'left', valign: 'top', fontStyle: 'bold', fontSize: 10 },
       2: { cellWidth: 65, halign: 'center', valign: 'top', fontStyle: 'bold', fontSize: 10 },
-      3: { cellWidth: 'auto', halign: 'left', valign: 'top' },
+      3: { cellWidth: 'auto', halign: 'left', valign: 'top', fontSize: 10 },
     },
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === 3) {
@@ -170,7 +170,7 @@ export function exportStudentMonthlyProgressReportPDF(
   // Calculate final Y position after table to render footer & signature
   const finalY = (doc as any).lastAutoTable?.finalY || 160;
   const pageHeight = doc.internal.pageSize.height;
-  let footerY = finalY + 30;
+  let footerY = finalY + 28;
 
   // If there's not enough room for the footer on current page, create a new page
   if (footerY + 70 > pageHeight) {
@@ -178,24 +178,24 @@ export function exportStudentMonthlyProgressReportPDF(
     footerY = 50;
   }
 
-  // Left Footer Info
+  // Left Footer Info - Strictly 10pt
   doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8.5);
+  doc.setFontSize(10);
   doc.setTextColor(100, 116, 139); // Slate 500
   doc.text('Dicetak secara otomatis melalui Makarios Clearance App.', 40, footerY);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(10);
   doc.setTextColor(148, 163, 184); // Slate 400
   doc.text(
     `Tanggal Cetak: ${now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`,
     40,
-    footerY + 12
+    footerY + 14
   );
 
-  // Right Footer Signature Box (Wali Kelas / Guru)
+  // Right Footer Signature Box (Wali Kelas / Guru) - Strictly 10pt
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
+  doc.setFontSize(10);
   doc.setTextColor(15, 23, 42); // Slate 900
   doc.text('Wali Kelas / Guru', pageWidth - 130, footerY, { align: 'center' });
 
@@ -205,9 +205,9 @@ export function exportStudentMonthlyProgressReportPDF(
   doc.line(pageWidth - 200, footerY + 45, pageWidth - 60, footerY + 45);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(10);
   doc.setTextColor(100, 116, 139);
-  doc.text('( ..................................................... )', pageWidth - 130, footerY + 56, {
+  doc.text('( ..................................................... )', pageWidth - 130, footerY + 58, {
     align: 'center',
   });
 
