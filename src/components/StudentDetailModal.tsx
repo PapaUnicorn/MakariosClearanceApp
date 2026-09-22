@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, ExternalLink, CheckCircle2, Clock, AlertTriangle, Printer, FileDown, FileText } from 'lucide-react';
-import { StudentClearanceRecord } from '../types';
+import { StudentClearanceRecord, getTaskStatusInfo } from '../types';
 import { exportStudentMonthlyProgressReportPDF } from '../utils/pdfExport';
 import { exportStudentMonthlyReportDocx } from '../utils/docxExport';
 import { StudentMonthlyReportModal } from './StudentMonthlyReportModal';
@@ -144,21 +144,18 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               </div>
             ) : (
               record.allTasks.map((task, idx) => {
-                let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
-                let badgeLabel = 'Belum Dikumpulkan';
-                let icon = <AlertTriangle className="w-4 h-4 text-rose-500" />;
+                const statusInfo = getTaskStatusInfo(task.status, task.assignedGrade, task.maxPoints);
 
+                let icon = <FileText className="w-4 h-4 text-slate-500" />;
                 if (task.status === 'GRADED') {
-                  badgeColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-                  badgeLabel = `Dinilai (${task.assignedGrade !== undefined ? task.assignedGrade : 'OK'}/${task.maxPoints || 100})`;
                   icon = <CheckCircle2 className="w-4 h-4 text-emerald-600" />;
-                } else if (task.status === 'WAITING_GRADE') {
-                  badgeColor = 'bg-amber-100 text-amber-800 border-amber-200';
-                  badgeLabel = 'Sudah Dikumpul (Menunggu Grading)';
+                } else if (task.status === 'RETURNED') {
+                  icon = <CheckCircle2 className="w-4 h-4 text-teal-600" />;
+                } else if (task.status === 'TURNED_IN_LATE') {
                   icon = <Clock className="w-4 h-4 text-amber-600" />;
-                } else {
-                  badgeColor = 'bg-rose-100 text-rose-800 border-rose-200';
-                  badgeLabel = 'Missing / Belum Dikumpul';
+                } else if (task.status === 'TURNED_IN' || task.status === 'WAITING_GRADE') {
+                  icon = <Clock className="w-4 h-4 text-blue-600" />;
+                } else if (task.status === 'MISSING') {
                   icon = <AlertTriangle className="w-4 h-4 text-rose-600" />;
                 }
 
@@ -186,8 +183,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     </div>
 
                     <div className="flex items-center space-x-2 ml-3 shrink-0">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${badgeColor} whitespace-nowrap`}>
-                        {badgeLabel}
+                      <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold border ${statusInfo.badgeClass} whitespace-nowrap`}>
+                        {statusInfo.label}
                       </span>
                       {task.alternateLink && (
                         <a

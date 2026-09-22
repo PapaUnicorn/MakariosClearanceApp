@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, FileDown, Printer, FileText, CheckCircle2, Calendar } from 'lucide-react';
-import { StudentClearanceRecord } from '../types';
+import { StudentClearanceRecord, getTaskStatusInfo } from '../types';
 import { exportStudentMonthlyProgressReportPDF } from '../utils/pdfExport';
 import { exportStudentMonthlyReportDocx } from '../utils/docxExport';
 import { filterTasksUpToMonth } from '../utils/dateFilter';
@@ -11,6 +11,8 @@ interface StudentMonthlyReportModalProps {
   records: StudentClearanceRecord[];
   isOpen: boolean;
   onClose: () => void;
+  initialYear?: number;
+  initialMonth?: number;
 }
 
 const MONTH_OPTIONS = [
@@ -34,6 +36,8 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
   records,
   isOpen,
   onClose,
+  initialYear,
+  initialMonth,
 }) => {
   const [schoolLevel, setSchoolLevel] = useState<string>(
     className.toUpperCase().includes('10') ||
@@ -44,8 +48,15 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
   );
 
   const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1); // 1-12
-  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(initialMonth || now.getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState<number>(initialYear || now.getFullYear());
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialMonth) setSelectedMonth(initialMonth);
+      if (initialYear) setSelectedYear(initialYear);
+    }
+  }, [isOpen, initialMonth, initialYear]);
 
   const currentMonthStr = `${MONTH_OPTIONS.find((m) => m.value === selectedMonth)?.label || 'AUGUST'} ${selectedYear}`;
 
@@ -275,24 +286,27 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
                               </div>
                             ) : (
                               <div className="flex flex-col space-y-2">
-                                {missingTasks.map((t, tIdx) => (
-                                  <div
-                                    key={t.courseWorkId || tIdx}
-                                    className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 shadow-2xs"
-                                  >
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="font-bold text-xs text-slate-900 leading-snug">
-                                        • {t.title}
+                                {missingTasks.map((t, tIdx) => {
+                                  const statusInfo = getTaskStatusInfo(t.status, t.assignedGrade, t.maxPoints);
+                                  return (
+                                    <div
+                                      key={t.courseWorkId || tIdx}
+                                      className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 shadow-2xs"
+                                    >
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="font-bold text-xs text-slate-900 leading-snug">
+                                          • {t.title}
+                                        </div>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${statusInfo.badgeClass}`}>
+                                          {statusInfo.label}
+                                        </span>
                                       </div>
-                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 text-rose-700 bg-rose-50 border-rose-200">
-                                        Belum Dikumpul
-                                      </span>
+                                      <div className="text-[11px] text-slate-500 font-medium mt-1 pl-2.5">
+                                        Deadline: <span className="text-slate-700 font-semibold">{t.dueDateStr && t.dueDateStr !== 'Tanpa Batas Waktu' ? t.dueDateStr : 'Tanpa batas waktu'}</span>
+                                      </div>
                                     </div>
-                                    <div className="text-[11px] text-slate-500 font-medium mt-1 pl-2.5">
-                                      Deadline: <span className="text-slate-700 font-semibold">{t.dueDateStr && t.dueDateStr !== 'Tanpa Batas Waktu' ? t.dueDateStr : 'Tanpa batas waktu'}</span>
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </td>

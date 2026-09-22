@@ -284,6 +284,22 @@ function formatDueDate(dueDate?: { year: number; month: number; day: number }, d
 }
 
 /**
+ * Check if coursework has a deadline and that deadline has already passed
+ */
+export function isTaskPastDue(
+  dueDate?: { year: number; month: number; day: number },
+  dueTime?: { hours?: number; minutes?: number }
+): boolean {
+  if (!dueDate || !dueDate.year || !dueDate.month || !dueDate.day) {
+    return false;
+  }
+  const hours = dueTime?.hours !== undefined ? dueTime.hours : 23;
+  const minutes = dueTime?.minutes !== undefined ? dueTime.minutes : 59;
+  const due = new Date(dueDate.year, dueDate.month - 1, dueDate.day, hours, minutes, 59);
+  return Date.now() > due.getTime();
+}
+
+/**
  * Orchestrates collecting and aggregating real data directly from Google Classroom API
  */
 export async function compileClearanceData(
@@ -375,15 +391,27 @@ export async function compileClearanceData(
           sub = submissions.find((s) => s.courseWorkId === cw.id);
         }
 
-        let status: TaskStatusType = 'NOT_SUBMITTED';
         const subState = sub ? sub.state : 'NEW';
+        const isPastDue = isTaskPastDue(cw.dueDate, cw.dueTime);
+        let status: TaskStatusType = 'ASSIGNED';
 
         if (subState === 'RETURNED' || (sub && sub.assignedGrade !== undefined && sub.assignedGrade !== null)) {
-          status = 'GRADED';
+          if (sub?.assignedGrade !== undefined && sub?.assignedGrade !== null) {
+            status = 'GRADED';
+          } else {
+            status = 'RETURNED';
+          }
         } else if (subState === 'TURNED_IN') {
-          status = 'WAITING_GRADE';
+          if (sub?.late) {
+            status = 'TURNED_IN_LATE';
+          } else {
+            status = 'TURNED_IN';
+          }
+        } else if (subState === 'RECLAIMED_BY_STUDENT') {
+          status = isPastDue ? 'MISSING' : 'RECLAIMED';
         } else {
-          status = 'NOT_SUBMITTED';
+          // NEW or CREATED (not turned in yet)
+          status = isPastDue ? 'MISSING' : 'ASSIGNED';
         }
 
         const taskItem: StudentTaskItem = {
@@ -407,22 +435,26 @@ export async function compileClearanceData(
 
         allTasks.push(taskItem);
 
-        if (status === 'NOT_SUBMITTED') {
+        // Clearance grouping:
+        // 1. Missing or Assigned or Reclaimed -> Unsubmitted tasks by student
+        // 2. Turned In (on-time or late) -> Ungraded tasks awaiting teacher
+        // 3. Graded or Returned -> Completed tasks
+        if (status === 'MISSING' || status === 'ASSIGNED' || status === 'RECLAIMED') {
           pendingUnsubmittedTasks.push(taskItem);
           unfinishedTasks.push(taskItem);
-        } else if (status === 'WAITING_GRADE') {
+        } else if (status === 'TURNED_IN' || status === 'TURNED_IN_LATE') {
           pendingUngradedTasks.push(taskItem);
           unfinishedTasks.push(taskItem);
         }
       }
 
       const totalTasks = courseWorks.length;
-      const completedTasks = allTasks.filter((t) => t.status === 'GRADED').length;
+      const completedTasks = allTasks.filter((t) => t.status === 'GRADED' || t.status === 'RETURNED').length;
       const isClear = unfinishedTasks.length === 0;
       const clearanceScore = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 100;
 
       // Calculate overall score for this course
-      const gradedTasks = allTasks.filter((t) => t.status === 'GRADED' && t.assignedGrade !== undefined);
+      const gradedTasks = allTasks.filter((t) => (t.status === 'GRADED' || t.status === 'RETURNED') && t.assignedGrade !== undefined);
       let overallScore: number | undefined = undefined;
       let overallScoreStr = '-';
       if (gradedTasks.length > 0) {

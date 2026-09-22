@@ -35,7 +35,7 @@ export function isTaskDueOnOrBeforeMonth(
 }
 
 /**
- * Filter an array of tasks so that only tasks that are NOT_SUBMITTED (Belum Dikumpul)
+ * Filter an array of tasks so that only tasks that are unsubmitted / missing (Belum Dikumpul / Tidak Ada)
  * and whose deadline is up to the given month/year are included.
  */
 export function filterTasksUpToMonth(
@@ -45,9 +45,14 @@ export function filterTasksUpToMonth(
   onlyNotSubmitted: boolean = true
 ): StudentTaskItem[] {
   return tasks.filter((t) => {
-    // Only include tasks that are strictly NOT_SUBMITTED (Belum Dikumpul)
-    if (onlyNotSubmitted && t.status !== 'NOT_SUBMITTED') {
-      return false;
+    // Only include tasks that are unsubmitted / missing
+    if (onlyNotSubmitted) {
+      const isUnsubmitted =
+        t.status === 'MISSING' ||
+        t.status === 'ASSIGNED' ||
+        t.status === 'RECLAIMED' ||
+        t.status === 'NOT_SUBMITTED';
+      if (!isUnsubmitted) return false;
     }
     return isTaskDueOnOrBeforeMonth(t, targetYear, targetMonth);
   });

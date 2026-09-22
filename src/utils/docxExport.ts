@@ -12,7 +12,7 @@ import {
   VerticalAlign,
   ShadingType,
 } from 'docx';
-import { StudentClearanceRecord } from '../types';
+import { StudentClearanceRecord, getTaskStatusInfo } from '../types';
 import { filterTasksUpToMonth } from './dateFilter';
 
 export async function exportStudentMonthlyReportDocx(
@@ -127,6 +127,7 @@ export async function exportStudentMonthlyReportDocx(
       );
     } else {
       missingTasks.forEach((task, tIdx) => {
+        const statusInfo = getTaskStatusInfo(task.status, task.assignedGrade, task.maxPoints);
         const dueText =
           task.dueDateStr && task.dueDateStr !== 'Tanpa Batas Waktu' ? task.dueDateStr : 'Tanpa batas waktu';
 
@@ -143,7 +144,7 @@ export async function exportStudentMonthlyReportDocx(
                 font: 'Calibri',
               }),
               new TextRun({
-                text: '(Belum Dikumpul)',
+                text: `(${statusInfo.label})`,
                 bold: true,
                 size: 18,
                 color: 'E11D48',

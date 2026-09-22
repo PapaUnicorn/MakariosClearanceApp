@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { StudentClearanceRecord, TeacherSummaryRecord } from '../types';
+import { StudentClearanceRecord, TeacherSummaryRecord, getTaskStatusInfo } from '../types';
 import { filterTasksUpToMonth } from './dateFilter';
 
 /**
@@ -87,14 +87,15 @@ export function exportStudentMonthlyProgressReportPDF(
       }
     }
 
-    // Missing assignments formatting: Filter only NOT_SUBMITTED tasks due in this month or earlier
+    // Missing assignments formatting: Filter only unsubmitted tasks due in this month or earlier
     const filteredUnfinished = filterTasksUpToMonth(record.unfinishedTasks, filterYear, filterMonth, true);
     let missingText = 'None';
     if (filteredUnfinished.length > 0) {
       missingText = filteredUnfinished
         .map((t) => {
+          const statusInfo = getTaskStatusInfo(t.status, t.assignedGrade, t.maxPoints);
           const due = t.dueDateStr && t.dueDateStr !== 'Tanpa Batas Waktu' ? t.dueDateStr : 'Tanpa batas waktu';
-          return `• ${t.title} (Belum Dikumpul)\n   Deadline: ${due}`;
+          return `• ${t.title} (${statusInfo.label})\n   Deadline: ${due}`;
         })
         .join('\n\n');
     }
@@ -273,8 +274,7 @@ export function exportStudentsToPDF(
   records.forEach((r) => {
     if (r.unfinishedTasks.length > 0) {
       r.unfinishedTasks.forEach((t) => {
-        const taskStatus =
-          t.status === 'NOT_SUBMITTED' ? 'Belum Dikumpulkan' : 'Menunggu Nilai Guru';
+        const statusInfo = getTaskStatusInfo(t.status, t.assignedGrade, t.maxPoints);
         flattenedRows.push({
           studentName: r.studentName,
           studentEmail: r.studentEmail,
@@ -282,7 +282,7 @@ export function exportStudentsToPDF(
           courseName: r.courseName,
           taskTitle: t.title,
           deadline: t.dueDateStr || 'Tanpa Batas Waktu',
-          taskStatus,
+          taskStatus: statusInfo.label,
           clearanceStatus: 'BELUM CLEAR',
           isClear: false,
         });
