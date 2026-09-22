@@ -265,6 +265,69 @@ export async function getCourseSubmissions(
   }
 }
 
+export interface ClassroomTopic {
+  id: string;
+  courseId: string;
+  name: string;
+  updateTime?: string;
+}
+
+export interface ClassroomMaterial {
+  id: string;
+  title: string;
+  description?: string;
+  alternateLink?: string;
+  creationTime?: string;
+  updateTime?: string;
+  topicId?: string;
+}
+
+/**
+ * Fetch topics defined in a course
+ */
+export async function getCourseTopics(courseId: string, token: string): Promise<ClassroomTopic[]> {
+  try {
+    const data: { topic?: { topicId: string; courseId: string; name: string; updateTime?: string }[] } =
+      await fetchGoogleApi(`${BASE_URL}/courses/${courseId}/topics`, token);
+    if (data.topic && Array.isArray(data.topic)) {
+      return data.topic.map((t) => ({
+        id: t.topicId,
+        courseId: t.courseId,
+        name: t.name,
+        updateTime: t.updateTime,
+      }));
+    }
+    return [];
+  } catch (err) {
+    // Non-blocking fallback if permission is restricted
+    return [];
+  }
+}
+
+/**
+ * Fetch learning materials (CourseWorkMaterials) uploaded to a course
+ */
+export async function getCourseMaterials(courseId: string, token: string): Promise<ClassroomMaterial[]> {
+  try {
+    const materials: ClassroomMaterial[] = [];
+    let pageToken: string | undefined = undefined;
+    do {
+      const query = new URLSearchParams({ pageSize: '50' });
+      if (pageToken) query.set('pageToken', pageToken);
+      const data: { courseWorkMaterial?: ClassroomMaterial[]; nextPageToken?: string } =
+        await fetchGoogleApi(`${BASE_URL}/courses/${courseId}/courseWorkMaterials?${query.toString()}`, token);
+      if (data.courseWorkMaterial && Array.isArray(data.courseWorkMaterial)) {
+        materials.push(...data.courseWorkMaterial);
+      }
+      pageToken = data.nextPageToken;
+    } while (pageToken);
+    return materials;
+  } catch (err) {
+    // Non-blocking fallback if permission is restricted
+    return [];
+  }
+}
+
 function formatDueDate(dueDate?: { year: number; month: number; day: number }, dueTime?: { hours?: number; minutes?: number }): string {
   if (!dueDate || !dueDate.year || !dueDate.month || !dueDate.day) {
     return 'Tanpa batas waktu';

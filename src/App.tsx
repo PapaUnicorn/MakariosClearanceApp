@@ -13,11 +13,14 @@ import {
   ClassroomCourse,
   SyncProgressState,
 } from './types';
-import { Navbar } from './components/Navbar';
+import { Navbar, AppTabType } from './components/Navbar';
 import { LoginScreen } from './components/LoginScreen';
 import { LoadingProgress } from './components/LoadingProgress';
 import { StudentClearanceTable } from './components/StudentClearanceTable';
 import { TeacherClearanceTable } from './components/TeacherClearanceTable';
+import { CurriculumAuditDashboard } from './components/CurriculumAuditDashboard';
+import { GradebookDashboard } from './components/GradebookDashboard';
+import { TeacherWorkloadDashboard } from './components/TeacherWorkloadDashboard';
 import { SummaryStats } from './components/SummaryStats';
 import { StudentDetailModal } from './components/StudentDetailModal';
 import { TeacherDetailModal } from './components/TeacherDetailModal';
@@ -54,7 +57,7 @@ export default function App() {
   const [sheetsToast, setSheetsToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Navigation & Modals
-  const [activeTab, setActiveTab] = useState<'students' | 'teachers' | 'stats'>('students');
+  const [activeTab, setActiveTab] = useState<AppTabType>('students');
   const [selectedStudentRecord, setSelectedStudentRecord] = useState<StudentClearanceRecord | null>(null);
   const [selectedTeacherRecord, setSelectedTeacherRecord] = useState<TeacherSummaryRecord | null>(null);
 
@@ -440,6 +443,28 @@ export default function App() {
               <TeacherClearanceTable
                 records={teacherSummaryRecords}
                 onSelectTeacherRecord={(record) => setSelectedTeacherRecord(record)}
+              />
+            )}
+
+            {activeTab === 'audit' && (
+              <CurriculumAuditDashboard
+                courses={courses}
+                teacherRecords={teacherRecords}
+                studentRecords={studentRecords}
+              />
+            )}
+
+            {activeTab === 'gradebook' && (
+              <GradebookDashboard
+                studentRecords={studentRecords}
+              />
+            )}
+
+            {activeTab === 'workload' && (
+              <TeacherWorkloadDashboard
+                teacherSummaryRecords={teacherSummaryRecords}
+                teacherClearanceRecords={teacherRecords}
+                studentRecords={studentRecords}
               />
             )}
 

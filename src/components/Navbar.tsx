@@ -1,12 +1,25 @@
 import React from 'react';
-import { LogOut, RefreshCw, GraduationCap, Users, ShieldCheck, BookOpen, Table, Database } from 'lucide-react';
+import {
+  LogOut,
+  RefreshCw,
+  GraduationCap,
+  Users,
+  ShieldCheck,
+  BookOpen,
+  Table,
+  Database,
+  Briefcase,
+  FileCheck,
+} from 'lucide-react';
 import { User } from 'firebase/auth';
 import { GoogleSheetDatabaseMeta } from '../services/googleSheetsDatabase';
 
+export type AppTabType = 'students' | 'teachers' | 'audit' | 'gradebook' | 'workload' | 'stats';
+
 interface NavbarProps {
   user: User | null;
-  activeTab: 'students' | 'teachers' | 'stats';
-  setActiveTab: (tab: 'students' | 'teachers' | 'stats') => void;
+  activeTab: AppTabType;
+  setActiveTab: (tab: AppTabType) => void;
   onRefresh: () => void;
   onLogout: () => void;
   isSyncing: boolean;
@@ -164,6 +177,45 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {totalTeachersCount}
               </span>
             )}
+          </button>
+
+          <button
+            id="tab-audit-btn"
+            onClick={() => setActiveTab('audit')}
+            className={`inline-flex items-center space-x-2 py-3 px-2 sm:px-1 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'audit'
+                ? 'border-amber-500 text-amber-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FileCheck className="w-4 h-4" />
+            <span>Curriculum Audit & RPP</span>
+          </button>
+
+          <button
+            id="tab-gradebook-btn"
+            onClick={() => setActiveTab('gradebook')}
+            className={`inline-flex items-center space-x-2 py-3 px-2 sm:px-1 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'gradebook'
+                ? 'border-amber-500 text-amber-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>Gradebook & Early Warning</span>
+          </button>
+
+          <button
+            id="tab-workload-btn"
+            onClick={() => setActiveTab('workload')}
+            className={`inline-flex items-center space-x-2 py-3 px-2 sm:px-1 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'workload'
+                ? 'border-amber-500 text-amber-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Briefcase className="w-4 h-4" />
+            <span>Kinerja Guru & SLA</span>
           </button>
 
           <button

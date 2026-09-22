@@ -297,3 +297,107 @@ export interface SyncProgressState {
   stepMessage: string;
   error?: string;
 }
+
+// ==========================================
+// A. CURRICULUM AUDIT & READINESS TYPES
+// ==========================================
+export interface CurriculumAuditCourse {
+  courseId: string;
+  courseName: string;
+  className: string;
+  courseLink?: string;
+  teacherNames: string[];
+  teacherEmails: string[];
+  creationTime?: string;
+  totalTasks: number;
+  totalMaterials: number;
+  totalTopics: number;
+  topicNames: string[];
+  lastActivityTime?: string;
+  daysSinceLastActivity: number; // e.g. 2 days ago, 15 days ago
+  activityStatus: 'ACTIVE' | 'WARNING' | 'DORMANT'; // <7 days, 7-14 days, >14 days
+  hasSyllabusOrRpp: boolean;
+  syllabusMatchDetail?: string; // Topic or material title that matched (e.g. "Modul Ajar Bab 1", "Silabus 2025/2026")
+  enrollmentStudentCount: number;
+  readinessScore: number; // 0-100% score based on RPP presence, activity in last 7 days, coursework created
+  readinessStatus: 'SIAP' | 'PERLU_PERHATIAN' | 'BELUM_LENGKAP';
+}
+
+export interface ExpectedScheduleSubject {
+  id: string;
+  subjectName: string;
+  targetClasses: string[]; // e.g. ["7A", "7B", "8A", "8B", "9A", "9B"]
+}
+
+export interface ScheduleComplianceCheckResult {
+  subjectName: string;
+  className: string;
+  isCreatedInClassroom: boolean;
+  matchedCourseId?: string;
+  matchedCourseName?: string;
+  teacherName?: string;
+}
+
+// ==========================================
+// B. ACADEMIC PROGRESS & GRADEBOOK TYPES
+// ==========================================
+export interface CourseStudentGradeDetail {
+  courseId: string;
+  courseName: string;
+  averageScore: number; // 0-100 scale
+  totalTasks: number;
+  gradedTasks: number;
+  missingTasks: number;
+  lateTasks: number;
+  unsubmittedTasks: number;
+}
+
+export interface AggregatedStudentGradebook {
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  studentPhoto?: string;
+  className: string;
+  courseGrades: Record<string, CourseStudentGradeDetail>;
+  overallGPA: number; // 0-100 average of all graded subjects
+  letterGrade: 'A' | 'B' | 'C' | 'D' | 'E';
+  totalAssignedTasks: number;
+  totalCompletedTasks: number;
+  totalMissingTasks: number;
+  totalLateTasks: number;
+  riskLevel: 'HIGH_RISK' | 'MEDIUM_RISK' | 'SAFE'; // Early warning status
+  riskReasons: string[];
+}
+
+export interface AssessmentWeightSummary {
+  category: 'FORMATIF_HARIAN' | 'KUIS_ULANGAN' | 'SUMATIF_UJIAN' | 'PRAKTIK_PROYEK' | 'LAINNYA';
+  label: string;
+  count: number;
+  percentage: number;
+  averageMaxPoints: number;
+}
+
+// ==========================================
+// C. TEACHER WORKLOAD & ENGAGEMENT TYPES
+// ==========================================
+export interface TeacherWorkloadMetric {
+  teacherId: string;
+  teacherName: string;
+  teacherEmail: string;
+  teacherPhoto?: string;
+  coursesCount: number;
+  coursesList: { courseId: string; courseName: string; className: string }[];
+  totalStudentsTaught: number;
+  totalTasksGiven: number;
+  totalMaterialsUploaded: number;
+  totalSubmissionsReceived: number;
+  totalSubmissionsGraded: number;
+  totalUngradedPending: number;
+  averageGradingTurnaroundDays: number; // Rata-rata hari SLA pengembalian nilai
+  slaStatus: 'EXCELLENT' | 'STANDARD' | 'OVERDUE'; // <3 days, 3-7 days, >7 days
+  pedagogicalRatio: number; // Materials vs Assignments (e.g. 1.2 or 0.4)
+  pedagogicalStatus: 'BALANCED' | 'ASSIGNMENT_HEAVY' | 'MATERIAL_HEAVY';
+  lastActivityDate?: string;
+  daysSinceLastPost: number;
+}
+
