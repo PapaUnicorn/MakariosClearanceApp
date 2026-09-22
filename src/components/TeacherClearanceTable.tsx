@@ -19,38 +19,13 @@ import {
   FileCheck,
   Calendar,
 } from 'lucide-react';
-import { TeacherSummaryRecord } from '../types';
-import { exportTeachersToPDF } from '../utils/pdfExport';
+import { TeacherSummaryRecord, FlattenedTeacherTaskRow } from '../types';
+import { exportFilteredTeacherTasksToPDF, exportSingleTeacherRecordToPDF, exportTeachersToPDF } from '../utils/pdfExport';
 import { ExcelMultiSelectFilter } from './ExcelMultiSelectFilter';
 
 interface TeacherClearanceTableProps {
   records: TeacherSummaryRecord[];
   onSelectTeacherRecord: (record: TeacherSummaryRecord) => void;
-}
-
-export interface FlattenedTeacherTaskRow {
-  rowId: string;
-  teacherId: string;
-  teacherName: string;
-  teacherEmail: string;
-  teacherPhoto?: string;
-  className: string;
-  courseId: string;
-  courseName: string;
-  courseLink?: string;
-  courseWorkId: string;
-  courseWorkTitle: string;
-  courseWorkLink?: string;
-  dueDateStr?: string;
-  ungradedCount: number;
-  ungradedStudents: {
-    studentId: string;
-    studentName: string;
-    studentEmail: string;
-    submissionLink?: string;
-  }[];
-  isClear: boolean;
-  parentRecord: TeacherSummaryRecord;
 }
 
 export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
@@ -272,9 +247,36 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
     return filteredRows.slice(start, start + itemsPerPage);
   }, [filteredRows, currentPage, itemsPerPage]);
 
+  // Determine if single teacher is currently filtered
+  const uniqueTeachersInFiltered = useMemo(() => {
+    return Array.from(new Set(filteredRows.map((r) => r.teacherName)));
+  }, [filteredRows]);
+
+  const isSingleTeacherFiltered =
+    (selectedTeachers.length === 1 && filteredRows.length > 0) ||
+    (filteredRows.length > 0 && uniqueTeachersInFiltered.length === 1);
+
+  const singleTeacherName = isSingleTeacherFiltered
+    ? selectedTeachers.length === 1
+      ? selectedTeachers[0]
+      : uniqueTeachersInFiltered[0]
+    : undefined;
+
   const handleExportPDF = () => {
-    if (records.length === 0) return;
-    exportTeachersToPDF(records);
+    if (filteredRows.length === 0) return;
+
+    exportFilteredTeacherTasksToPDF(filteredRows, {
+      singleTeacherName,
+      selectedTeachers,
+      selectedClasses,
+      selectedCourses,
+      statusFilter,
+      searchTerm,
+    });
+  };
+
+  const handleExportSingleTeacher = (record: TeacherSummaryRecord) => {
+    exportSingleTeacherRecordToPDF(record);
   };
 
   const toggleExpandStudents = (rowId: string) => {
@@ -374,11 +376,29 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
               type="button"
               onClick={handleExportPDF}
               disabled={filteredRows.length === 0}
-              className="inline-flex items-center justify-center space-x-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border border-slate-800"
-              title="Unduh Laporan PDF Guru"
+              className={`inline-flex items-center justify-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border ${
+                isSingleTeacherFiltered
+                  ? 'bg-amber-400 hover:bg-amber-500 text-slate-950 border-amber-500 font-extrabold shadow-sm'
+                  : hasActiveFilters
+                  ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-800'
+                  : 'bg-slate-900 hover:bg-slate-800 text-white border-slate-800'
+              } disabled:opacity-50`}
+              title={
+                isSingleTeacherFiltered
+                  ? `Unduh Laporan PDF khusus untuk ${singleTeacherName} (${filteredRows.length} baris tugas)`
+                  : hasActiveFilters
+                  ? `Unduh Laporan PDF untuk data terfilter (${filteredRows.length} baris tugas)`
+                  : `Unduh Laporan PDF untuk semua guru (${filteredRows.length} tugas)`
+              }
             >
-              <FileText className="w-4 h-4 text-[#FFC800]" />
-              <span>Ekspor PDF Rekap</span>
+              <FileText className={`w-4 h-4 ${isSingleTeacherFiltered ? 'text-slate-950' : 'text-[#FFC800]'}`} />
+              <span>
+                {isSingleTeacherFiltered
+                  ? `Ekspor PDF: ${singleTeacherName}`
+                  : hasActiveFilters
+                  ? `Ekspor PDF Terfilter (${filteredRows.length} Tugas)`
+                  : 'Ekspor PDF Semua Guru'}
+              </span>
             </button>
           </div>
         </div>
@@ -672,6 +692,20 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
                                 {row.teacherEmail}
                               </div>
                             )}
+                            <div className="flex items-center space-x-1.5 mt-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleExportSingleTeacher(row.parentRecord);
+                                }}
+                                className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-900 text-[10px] font-bold transition-colors cursor-pointer border border-amber-200 shadow-2xs"
+                                title={`Unduh laporan PDF khusus guru ${row.teacherName}`}
+                              >
+                                <FileText className="w-2.5 h-2.5 text-amber-700" />
+                                <span>PDF Guru</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </td>

@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { StudentClearanceRecord, TeacherSummaryRecord, getTaskStatusInfo } from '../types';
+import { StudentClearanceRecord, TeacherSummaryRecord, FlattenedTeacherTaskRow, getTaskStatusInfo } from '../types';
 import { filterTasksUpToMonth } from './dateFilter';
 
 /**
@@ -412,10 +412,26 @@ export function exportStudentsToPDF(
   doc.save(fileName);
 }
 
-export function exportTeachersToPDF(
-  records: TeacherSummaryRecord[],
-  titleSuffix: string = ''
+export interface TeacherExportFilterOptions {
+  singleTeacherName?: string;
+  selectedTeachers?: string[];
+  selectedClasses?: string[];
+  selectedCourses?: string[];
+  statusFilter?: string;
+  searchTerm?: string;
+}
+
+/**
+ * Export Teacher Grading Tasks Report (PDF format)
+ * Exact columns: Nama Guru, Kelas, Mata Pelajaran, Tugas Belum Dinilai (1 baris per tugas)
+ * If filtered to 1 teacher (or single teacher selected), generates specific single-teacher PDF report.
+ */
+export function exportFilteredTeacherTasksToPDF(
+  rows: FlattenedTeacherTaskRow[],
+  filterOptions: TeacherExportFilterOptions = {}
 ) {
+  if (!rows || rows.length === 0) return;
+
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'pt',
@@ -433,105 +449,182 @@ export function exportTeachersToPDF(
     minute: '2-digit',
   });
 
-  const clearCount = records.filter((r) => r.isClear).length;
-  const pendingCount = records.length - clearCount;
-  const totalUngradedSubmissions = records.reduce((acc, r) => acc + r.totalUngradedSubmissions, 0);
+  const pageWidth = doc.internal.pageSize.width;
 
-  // Flatten rows: 1 line 1 data per teacher task
-  const flattenedRows: {
-    teacherName: string;
-    teacherEmail: string;
-    courseName: string;
-    className: string;
-    taskTitle: string;
-    ungradedCount: number;
-    ungradedStudentNames: string;
-    status: string;
-  }[] = [];
+  // Determine if this export represents a single teacher
+  const uniqueTeachers = Array.from(new Set(rows.map((r) => r.teacherName)));
+  const isSingleTeacher =
+    uniqueTeachers.length === 1 ||
+    Boolean(filterOptions.singleTeacherName) ||
+    (filterOptions.selectedTeachers && filterOptions.selectedTeachers.length === 1);
 
-  records.forEach((r) => {
-    if (r.ungradedTasksList.length > 0) {
-      r.ungradedTasksList.forEach((u) => {
-        const studentNames = u.ungradedStudents.map((s) => s.studentName).join(', ');
-        flattenedRows.push({
-          teacherName: r.teacherName,
-          teacherEmail: r.teacherEmail,
-          courseName: u.courseName,
-          className: u.className,
-          taskTitle: u.dueDateStr ? `${u.courseWorkTitle} (Batas: ${u.dueDateStr})` : u.courseWorkTitle,
-          ungradedCount: u.ungradedCount,
-          ungradedStudentNames: studentNames,
-          status: `PERLU GRADING (${u.ungradedCount} siswa)`,
-        });
-      });
-    } else {
-      const allCourseNames = r.assignedCourses.map((c) => `${c.courseName} (${c.className})`).join(', ');
-      flattenedRows.push({
-        teacherName: r.teacherName,
-        teacherEmail: r.teacherEmail,
-        courseName: allCourseNames || '-',
-        className: '-',
-        taskTitle: 'Semua submisi tugas telah dinilai',
-        ungradedCount: 0,
-        ungradedStudentNames: '-',
-        status: 'CLEAR',
-      });
-    }
-  });
+  const targetTeacherName =
+    filterOptions.singleTeacherName ||
+    (filterOptions.selectedTeachers && filterOptions.selectedTeachers.length === 1
+      ? filterOptions.selectedTeachers[0]
+      : uniqueTeachers[0]);
 
-  // Header Banner
-  doc.setFillColor(37, 99, 235); // Blue 600
-  doc.rect(0, 0, doc.internal.pageSize.width, 54, 'F');
+  const singleTeacherRecord = rows.find((r) => r.teacherName === targetTeacherName);
+  const teacherEmail = isSingleTeacher && singleTeacherRecord ? singleTeacherRecord.teacherEmail : '';
+
+  const totalUngradedSubmissions = rows.reduce((acc, r) => acc + (r.ungradedCount || 0), 0);
+  const pendingTasksCount = rows.filter((r) => !r.isClear).length;
+  const isAllClear = rows.every((r) => r.isClear);
+
+  // 1. Header Banner with Makarios / Maybank slate & gold theme
+  const bannerHeight = 52;
+  doc.setFillColor(15, 23, 42); // Slate 900
+  doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+  // Accent Gold Line
+  doc.setFillColor(255, 200, 0); // Maybank Yellow (#FFC800)
+  doc.rect(0, bannerHeight - 4, pageWidth, 4, 'F');
+
+  // Header Titles
+  doc.setTextColor(255, 200, 0);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('MAKARIOS CHRISTIAN SCHOOL', 40, 23);
 
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
-  doc.setFont('helvetica', 'bold');
-  doc.text('MAKARIOS CLEARANCE APP', 40, 26);
-
   doc.setFontSize(9.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('Laporan Status Grading Guru (1 Baris per Tugas)', 40, 42);
+  if (isSingleTeacher && targetTeacherName) {
+    doc.text(`Laporan Tugas Belum Dinilai: ${targetTeacherName.toUpperCase()}`, 40, 39);
+  } else {
+    doc.text('Laporan Status Grading Guru (Hasil Filter Terpilih)', 40, 39);
+  }
 
-  doc.setFontSize(8.5);
-  doc.text(`Dicetak: ${dateStr}, ${timeStr}`, doc.internal.pageSize.width - 40, 34, { align: 'right' });
+  doc.setFontSize(8);
+  doc.setTextColor(203, 213, 225); // Slate 300
+  doc.text(`Dicetak: ${dateStr}, ${timeStr}`, pageWidth - 40, 31, { align: 'right' });
 
-  // Summary Stat
-  doc.setTextColor(51, 65, 85);
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text(
-    `Total Guru: ${records.length}  |  Grading Tuntas: ${clearCount} Guru  |  Perlu Grading: ${pendingCount} Guru (${totalUngradedSubmissions} Total Submisi) ${titleSuffix ? ` | ${titleSuffix}` : ''}`,
-    40,
-    72
-  );
+  // 2. Summary Card Section
+  const summaryBoxY = 66;
+  const summaryBoxHeight = 44;
+  doc.setFillColor(248, 250, 252); // Slate 50
+  doc.roundedRect(40, summaryBoxY, pageWidth - 80, summaryBoxHeight, 4, 4, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(40, summaryBoxY, pageWidth - 80, summaryBoxHeight, 4, 4, 'S');
 
-  // Prepare table data
-  const tableData = flattenedRows.map((row, index) => [
-    (index + 1).toString(),
-    row.teacherEmail ? `${row.teacherName}\n(${row.teacherEmail})` : row.teacherName,
-    row.className !== '-' ? `${row.courseName}\n(${row.className})` : row.courseName,
-    row.taskTitle,
-    row.ungradedCount > 0 ? `${row.ungradedCount} siswa:\n${row.ungradedStudentNames}` : 'Tidak ada',
-    row.status,
-  ]);
+  if (isSingleTeacher && targetTeacherName) {
+    // Left: Teacher info
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Nama Guru: ${targetTeacherName}`, 52, summaryBoxY + 17);
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text(teacherEmail ? `Email: ${teacherEmail}` : 'Akun Google Classroom Terhubung', 52, summaryBoxY + 32);
+
+    // Right: Status & count
+    const statusText = isAllClear
+      ? 'STATUS: CLEAR (Semua Tugas Telah Dinilai)'
+      : `STATUS: PERLU GRADING (${pendingTasksCount} Tugas • ${totalUngradedSubmissions} Siswa Menunggu Nilai)`;
+
+    doc.setFont('helvetica', 'bold');
+    if (isAllClear) {
+      doc.setTextColor(22, 101, 52); // Emerald 800
+    } else {
+      doc.setTextColor(190, 24, 93); // Rose 700
+    }
+    doc.text(statusText, pageWidth - 52, summaryBoxY + 17, { align: 'right' });
+
+    // Filter subtitle if extra filters applied
+    const extraFilterTags: string[] = [];
+    if (filterOptions.selectedClasses && filterOptions.selectedClasses.length > 0) {
+      extraFilterTags.push(`Kelas: ${filterOptions.selectedClasses.join(', ')}`);
+    }
+    if (filterOptions.selectedCourses && filterOptions.selectedCourses.length > 0) {
+      extraFilterTags.push(`Mapel: ${filterOptions.selectedCourses.join(', ')}`);
+    }
+    if (filterOptions.searchTerm) {
+      extraFilterTags.push(`Cari: "${filterOptions.searchTerm}"`);
+    }
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    const filterDesc = extraFilterTags.length > 0
+      ? `Filter Tambahan: ${extraFilterTags.join(' • ')}`
+      : `Menampilkan ${rows.length} tugas terdata untuk guru ini`;
+    doc.text(filterDesc, pageWidth - 52, summaryBoxY + 32, { align: 'right' });
+  } else {
+    // Multi-teacher filter summary
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text(
+      `Hasil Filter: ${uniqueTeachers.length} Guru  |  ${rows.length} Baris Tugas  |  ${totalUngradedSubmissions} Total Siswa Menunggu`,
+      52,
+      summaryBoxY + 17
+    );
+
+    const filterTags: string[] = [];
+    if (filterOptions.selectedTeachers && filterOptions.selectedTeachers.length > 0) {
+      filterTags.push(`Guru (${filterOptions.selectedTeachers.length}): ${filterOptions.selectedTeachers.slice(0, 3).join(', ')}${filterOptions.selectedTeachers.length > 3 ? '...' : ''}`);
+    }
+    if (filterOptions.selectedClasses && filterOptions.selectedClasses.length > 0) {
+      filterTags.push(`Kelas: ${filterOptions.selectedClasses.join(', ')}`);
+    }
+    if (filterOptions.selectedCourses && filterOptions.selectedCourses.length > 0) {
+      filterTags.push(`Mapel: ${filterOptions.selectedCourses.join(', ')}`);
+    }
+    if (filterOptions.searchTerm) {
+      filterTags.push(`Pencarian: "${filterOptions.searchTerm}"`);
+    }
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    const filterDesc = filterTags.length > 0 ? filterTags.join(' • ') : 'Menampilkan seluruh antrean tugas';
+    doc.text(filterDesc, 52, summaryBoxY + 32);
+  }
+
+  // 3. Prepare Table Data (Order: Nama Guru, Kelas, Mata Pelajaran, Tugas Belum Dinilai)
+  const tableData = rows.map((row, index) => {
+    let taskText = row.courseWorkTitle || 'Tugas';
+    if (row.dueDateStr && row.dueDateStr !== 'Tanpa Batas Waktu') {
+      taskText += `\n(Batas Pengumpulan: ${row.dueDateStr})`;
+    }
+    if (row.ungradedStudents && row.ungradedStudents.length > 0) {
+      const studentNames = row.ungradedStudents.map((s) => s.studentName).join(', ');
+      taskText += `\n\nSiswa Belum Dinilai (${row.ungradedCount}):\n${studentNames}`;
+    }
+
+    const statusText = row.isClear
+      ? 'CLEAR'
+      : `PERLU GRADING\n(${row.ungradedCount} siswa)`;
+
+    return [
+      (index + 1).toString(),
+      row.teacherEmail ? `${row.teacherName}\n(${row.teacherEmail})` : row.teacherName,
+      row.className || '-',
+      row.courseName || '-',
+      taskText,
+      statusText,
+    ];
+  });
 
   autoTable(doc, {
-    startY: 84,
-    head: [['No', 'Nama Guru', 'Mata Pelajaran & Kelas', 'Nama Tugas', 'Siswa Belum Dinilai', 'Status']],
+    startY: summaryBoxY + summaryBoxHeight + 14,
+    head: [['No', 'Nama Guru', 'Kelas', 'Mata Pelajaran', 'Tugas Belum Dinilai', 'Status']],
     body: tableData,
     theme: 'grid',
     headStyles: {
-      fillColor: [30, 41, 59],
+      fillColor: [15, 23, 42],
       textColor: [255, 255, 255],
       fontSize: 8.5,
       fontStyle: 'bold',
       halign: 'left',
-      valign: 'top',
-      cellPadding: 5,
+      valign: 'middle',
+      cellPadding: 6,
     },
     styles: {
       fontSize: 8,
-      cellPadding: 5,
+      cellPadding: 6,
       overflow: 'linebreak',
       valign: 'top',
       halign: 'left',
@@ -539,16 +632,16 @@ export function exportTeachersToPDF(
       lineWidth: 0.5,
     },
     columnStyles: {
-      0: { cellWidth: 26, halign: 'left', valign: 'top' },
-      1: { cellWidth: 130, halign: 'left', valign: 'top' },
-      2: { cellWidth: 120, halign: 'left', valign: 'top' },
-      3: { cellWidth: 140, halign: 'left', valign: 'top' },
-      4: { cellWidth: 'auto', halign: 'left', valign: 'top' },
-      5: { cellWidth: 90, halign: 'left', valign: 'top', fontStyle: 'bold' },
+      0: { cellWidth: 26, halign: 'center' },
+      1: { cellWidth: 125 },
+      2: { cellWidth: 70 },
+      3: { cellWidth: 135 },
+      4: { cellWidth: 'auto' },
+      5: { cellWidth: 85, fontStyle: 'bold', halign: 'center' },
     },
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === 5) {
-        if (data.cell.raw === 'CLEAR') {
+        if (typeof data.cell.raw === 'string' && data.cell.raw.includes('CLEAR')) {
           data.cell.styles.textColor = [22, 101, 52];
           data.cell.styles.fillColor = [240, 253, 244];
         } else {
@@ -564,13 +657,134 @@ export function exportTeachersToPDF(
       doc.setTextColor(148, 163, 184);
       doc.text(
         `Makarios Clearance App • Halaman ${data.pageNumber} dari ${pageNumber}`,
-        doc.internal.pageSize.width / 2,
+        pageWidth / 2,
         doc.internal.pageSize.height - 18,
         { align: 'center' }
       );
     },
   });
 
-  const fileName = `Makarios_Clearance_Guru_${now.toISOString().slice(0, 10)}.pdf`;
+  // Descriptive Filename
+  let fileName: string;
+  const cleanDate = now.toISOString().slice(0, 10);
+  if (isSingleTeacher && targetTeacherName) {
+    const cleanTeacherName = targetTeacherName.replace(/[^a-zA-Z0-9]/g, '_');
+    fileName = `Makarios_Grading_${cleanTeacherName}_${cleanDate}.pdf`;
+  } else {
+    fileName = `Makarios_Grading_Guru_Terfilter_${cleanDate}.pdf`;
+  }
+
   doc.save(fileName);
+}
+
+/**
+ * Export a single teacher's clearance record directly to PDF
+ */
+export function exportSingleTeacherRecordToPDF(record: TeacherSummaryRecord) {
+  if (!record) return;
+
+  const rows: FlattenedTeacherTaskRow[] = [];
+
+  if (record.ungradedTasksList && record.ungradedTasksList.length > 0) {
+    record.ungradedTasksList.forEach((u, uIdx) => {
+      const courseMatch = record.assignedCourses?.find((c) => c.courseId === u.courseId);
+      rows.push({
+        rowId: `${record.teacherId}-${u.courseId}-${u.courseWorkId || uIdx}`,
+        teacherId: record.teacherId,
+        teacherName: record.teacherName,
+        teacherEmail: record.teacherEmail,
+        teacherPhoto: record.teacherPhoto,
+        className: u.className,
+        courseId: u.courseId,
+        courseName: u.courseName,
+        courseLink: courseMatch?.courseLink,
+        courseWorkId: u.courseWorkId,
+        courseWorkTitle: u.courseWorkTitle,
+        courseWorkLink: u.courseWorkLink,
+        dueDateStr: u.dueDateStr,
+        ungradedCount: u.ungradedCount,
+        ungradedStudents: u.ungradedStudents || [],
+        isClear: false,
+        parentRecord: record,
+      });
+    });
+  } else {
+    const courseNames = record.assignedCourses.map((c) => `${c.courseName} (${c.className})`).join(', ');
+    rows.push({
+      rowId: `${record.teacherId}-clear`,
+      teacherId: record.teacherId,
+      teacherName: record.teacherName,
+      teacherEmail: record.teacherEmail,
+      teacherPhoto: record.teacherPhoto,
+      className: '-',
+      courseId: '',
+      courseName: courseNames || '-',
+      courseWorkId: '',
+      courseWorkTitle: 'Semua submisi tugas telah dinilai',
+      ungradedCount: 0,
+      ungradedStudents: [],
+      isClear: true,
+      parentRecord: record,
+    });
+  }
+
+  exportFilteredTeacherTasksToPDF(rows, {
+    singleTeacherName: record.teacherName,
+  });
+}
+
+export function exportTeachersToPDF(
+  records: TeacherSummaryRecord[],
+  titleSuffix: string = ''
+) {
+  const flattenedRows: FlattenedTeacherTaskRow[] = [];
+
+  records.forEach((r) => {
+    if (r.ungradedTasksList.length > 0) {
+      r.ungradedTasksList.forEach((u, uIdx) => {
+        const courseMatch = r.assignedCourses?.find((c) => c.courseId === u.courseId);
+        flattenedRows.push({
+          rowId: `${r.teacherId}-${u.courseId}-${u.courseWorkId || uIdx}`,
+          teacherId: r.teacherId,
+          teacherName: r.teacherName,
+          teacherEmail: r.teacherEmail,
+          teacherPhoto: r.teacherPhoto,
+          className: u.className,
+          courseId: u.courseId,
+          courseName: u.courseName,
+          courseLink: courseMatch?.courseLink,
+          courseWorkId: u.courseWorkId,
+          courseWorkTitle: u.courseWorkTitle,
+          courseWorkLink: u.courseWorkLink,
+          dueDateStr: u.dueDateStr,
+          ungradedCount: u.ungradedCount,
+          ungradedStudents: u.ungradedStudents || [],
+          isClear: false,
+          parentRecord: r,
+        });
+      });
+    } else {
+      const allCourseNames = r.assignedCourses.map((c) => `${c.courseName} (${c.className})`).join(', ');
+      flattenedRows.push({
+        rowId: `${r.teacherId}-clear`,
+        teacherId: r.teacherId,
+        teacherName: r.teacherName,
+        teacherEmail: r.teacherEmail,
+        teacherPhoto: r.teacherPhoto,
+        className: '-',
+        courseId: '',
+        courseName: allCourseNames || '-',
+        courseWorkId: '',
+        courseWorkTitle: 'Semua submisi tugas telah dinilai',
+        ungradedCount: 0,
+        ungradedStudents: [],
+        isClear: true,
+        parentRecord: r,
+      });
+    }
+  });
+
+  exportFilteredTeacherTasksToPDF(flattenedRows, {
+    searchTerm: titleSuffix,
+  });
 }

@@ -289,6 +289,31 @@ export interface TeacherSummaryRecord {
   isClear: boolean;
 }
 
+export interface FlattenedTeacherTaskRow {
+  rowId: string;
+  teacherId: string;
+  teacherName: string;
+  teacherEmail: string;
+  teacherPhoto?: string;
+  className: string;
+  courseId: string;
+  courseName: string;
+  courseLink?: string;
+  courseWorkId: string;
+  courseWorkTitle: string;
+  courseWorkLink?: string;
+  dueDateStr?: string;
+  ungradedCount: number;
+  ungradedStudents: {
+    studentId: string;
+    studentName: string;
+    studentEmail: string;
+    submissionLink?: string;
+  }[];
+  isClear: boolean;
+  parentRecord: TeacherSummaryRecord;
+}
+
 export interface SyncProgressState {
   isSyncing: boolean;
   totalCourses: number;
