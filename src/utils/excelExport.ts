@@ -77,7 +77,6 @@ export function exportFilteredTeacherTasksToXLSX(
     [
       'No',
       'Nama Guru',
-      'Email Guru',
       'Kelas',
       'Mata Pelajaran',
       'Judul Tugas',
@@ -104,7 +103,6 @@ export function exportFilteredTeacherTasksToXLSX(
     aoaData.push([
       idx + 1,
       r.teacherName,
-      r.teacherEmail || '',
       r.className || '-',
       r.courseName || '-',
       r.courseWorkTitle || 'Tugas',
@@ -123,7 +121,6 @@ export function exportFilteredTeacherTasksToXLSX(
     'TOTAL',
     '',
     '',
-    '',
     `${rows.length} Tugas Terdata`,
     '',
     totalUngradedCount,
@@ -139,8 +136,7 @@ export function exportFilteredTeacherTasksToXLSX(
   // Column Widths
   ws['!cols'] = [
     { wch: 6 },  // No
-    { wch: 25 }, // Nama Guru
-    { wch: 28 }, // Email
+    { wch: 28 }, // Nama Guru
     { wch: 10 }, // Kelas
     { wch: 25 }, // Mata Pelajaran
     { wch: 32 }, // Judul Tugas

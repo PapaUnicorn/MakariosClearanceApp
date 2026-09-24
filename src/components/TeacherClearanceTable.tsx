@@ -210,21 +210,6 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
     searchTerm,
   ]);
 
-  // Stats on filtered rows
-  const stats = useMemo(() => {
-    const pendingTasksCount = filteredRows.filter((r) => !r.isClear).length;
-    const totalUngradedSubmissions = filteredRows.reduce((acc, r) => acc + (r.ungradedCount || 0), 0);
-    const uniqueTeachers = new Set(filteredRows.filter((r) => !r.isClear).map((r) => r.teacherId)).size;
-    const uniqueClasses = new Set(filteredRows.filter((r) => !r.isClear && r.className !== '-').map((r) => r.className)).size;
-
-    return {
-      pendingTasksCount,
-      totalUngradedSubmissions,
-      uniqueTeachers,
-      uniqueClasses,
-    };
-  }, [filteredRows]);
-
   const hasActiveFilters =
     searchTerm !== '' ||
     selectedTeachers.length > 0 ||
@@ -319,61 +304,6 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
 
   return (
     <div id="teacher-clearance-hub" className="space-y-4">
-      {/* KPI Cards Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white border border-rose-200 rounded-2xl p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Tugas Belum Dinilai</span>
-            <Clock className="w-4 h-4 text-rose-500" />
-          </div>
-          <div className="text-xl font-black text-rose-700 mt-1">
-            {stats.pendingTasksCount} <span className="text-xs font-normal text-rose-400">Tugas</span>
-          </div>
-          <div className="text-[11px] text-rose-600 font-medium mt-0.5">
-            Satu baris per satu tugas
-          </div>
-        </div>
-
-        <div className="bg-white border border-amber-300 rounded-2xl p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Total Antrean Siswa</span>
-            <Users className="w-4 h-4 text-amber-600" />
-          </div>
-          <div className="text-xl font-black text-amber-900 mt-1">
-            {stats.totalUngradedSubmissions} <span className="text-xs font-normal text-amber-700">Submisi</span>
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            Menunggu penilaian guru
-          </div>
-        </div>
-
-        <div className="bg-white border border-blue-200 rounded-2xl p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Guru Terlibat</span>
-            <GraduationCap className="w-4 h-4 text-blue-600" />
-          </div>
-          <div className="text-xl font-black text-blue-900 mt-1">
-            {stats.uniqueTeachers} <span className="text-xs font-normal text-blue-500">Guru</span>
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            Dari {availableTeachers.length} guru terdaftar
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Kelas Terdata</span>
-            <BookOpen className="w-4 h-4 text-slate-500" />
-          </div>
-          <div className="text-xl font-black text-slate-900 mt-1">
-            {stats.uniqueClasses} <span className="text-xs font-normal text-slate-400">Kelas</span>
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            {availableCourses.length} Mata Pelajaran
-          </div>
-        </div>
-      </div>
-
       {/* Bento Controls Card with Maybank theme */}
       <div className="bg-white border border-amber-200/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5">
         {/* Row 1: Search & Action Buttons */}

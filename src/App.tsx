@@ -18,9 +18,6 @@ import { LoginScreen } from './components/LoginScreen';
 import { LoadingProgress } from './components/LoadingProgress';
 import { StudentClearanceTable } from './components/StudentClearanceTable';
 import { TeacherClearanceTable } from './components/TeacherClearanceTable';
-import { CurriculumAuditDashboard } from './components/CurriculumAuditDashboard';
-import { GradebookDashboard } from './components/GradebookDashboard';
-import { TeacherWorkloadDashboard } from './components/TeacherWorkloadDashboard';
 import { StudentDetailModal } from './components/StudentDetailModal';
 import { TeacherDetailModal } from './components/TeacherDetailModal';
 import { GoogleSheetsDatabaseModal } from './components/GoogleSheetsDatabaseModal';
@@ -31,7 +28,7 @@ import {
   syncRecordsToGoogleSheets,
   loadRecordsFromGoogleSheets,
 } from './services/googleSheetsDatabase';
-import { AlertCircle, RefreshCw, GraduationCap, Table, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { AlertCircle, RefreshCw, GraduationCap, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -302,98 +299,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Bento Top Banner (Google Classroom & Google Sheets Status) */}
-        {!syncProgress.isSyncing && (courses.length > 0 || studentRecords.length > 0) && (
-          <div className="mb-5 space-y-2.5">
-            {/* Main Classroom Sync Bar */}
-            <div className="bg-slate-900 border border-amber-400/40 rounded-2xl p-4 sm:p-5 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#FFC800] animate-pulse" />
-                  <p className="text-xs font-medium text-amber-200">Sistem Monitoring Clearance Kurikulum</p>
-                </div>
-                <p className="text-base sm:text-lg font-black mt-0.5 text-white">
-                  {courses.length > 0 ? `${courses.length} Kelas Aktif • ` : ''}
-                  {studentRecords.length} Siswa Terdaftar • {teacherSummaryRecords.length} Guru • {lastSyncTime || 'Tersedia'}
-                </p>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleRefresh}
-                  className="inline-flex items-center justify-center space-x-1.5 bg-[#FFC800] hover:bg-amber-400 text-slate-950 active:scale-95 px-3.5 py-2 rounded-xl font-black text-xs transition-all shrink-0 cursor-pointer shadow-xs"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Ambil Data Classroom</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Google Sheets Database Active Banner */}
-            {databaseMeta ? (
-              <div className="bg-emerald-50/90 border border-emerald-300 rounded-xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-emerald-950 shadow-2xs">
-                <div className="flex items-center space-x-2.5 min-w-0">
-                  <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                    <Table className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="truncate">
-                    <span className="font-extrabold text-emerald-900">Database Google Sheets: </span>
-                    <span className="font-bold text-slate-800">{databaseMeta.title}</span>
-                    <span className="text-[11px] text-emerald-700 ml-2 hidden md:inline">
-                      • Terakhir sinkron: {databaseMeta.lastSyncedAt || 'Belum tersinkron'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2 shrink-0">
-                  <a
-                    href={databaseMeta.spreadsheetUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100 rounded-lg transition-colors"
-                  >
-                    <span>Buka Sheet</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsSyncConfirmModalOpen(true)}
-                    className="inline-flex items-center space-x-1 px-3 py-1 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-2xs transition-colors cursor-pointer"
-                  >
-                    <span>Simpan ke Sheets</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsDatabaseModalOpen(true)}
-                    className="inline-flex items-center px-2 py-1 text-[11px] font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
-                  >
-                    Kelola Database
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-amber-50/90 border border-amber-200 rounded-xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
-                <div className="flex items-center space-x-2">
-                  <Table className="w-4 h-4 text-emerald-700 shrink-0" />
-                  <span>
-                    <strong>Database Google Sheets belum terhubung.</strong> Simpan seluruh rekap clearance siswa dan riwayat penilaian ke Google Sheets Anda.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsDatabaseModalOpen(true)}
-                  className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg text-xs font-extrabold text-slate-950 bg-[#FFC800] hover:bg-amber-400 border border-amber-400 shadow-2xs cursor-pointer shrink-0 transition-all"
-                >
-                  <Table className="w-3.5 h-3.5 text-emerald-800" />
-                  <span>Hubungkan Google Sheets</span>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Sync Progress Indicator */}
         {syncProgress.isSyncing && <LoadingProgress progress={syncProgress} />}
 
@@ -451,28 +356,6 @@ export default function App() {
               <TeacherClearanceTable
                 records={teacherSummaryRecords}
                 onSelectTeacherRecord={(record) => setSelectedTeacherRecord(record)}
-              />
-            )}
-
-            {activeTab === 'audit' && (
-              <CurriculumAuditDashboard
-                courses={courses}
-                teacherRecords={teacherRecords}
-                studentRecords={studentRecords}
-              />
-            )}
-
-            {activeTab === 'gradebook' && (
-              <GradebookDashboard
-                studentRecords={studentRecords}
-              />
-            )}
-
-            {activeTab === 'workload' && (
-              <TeacherWorkloadDashboard
-                teacherSummaryRecords={teacherSummaryRecords}
-                teacherClearanceRecords={teacherRecords}
-                studentRecords={studentRecords}
               />
             )}
           </div>
