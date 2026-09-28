@@ -21,48 +21,8 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   onChangeEndDate,
   onReset,
   className = '',
-  compact = false,
 }) => {
   const isRangeActive = Boolean(startDate || endDate);
-
-  // Helper to format today's date in YYYY-MM-DD
-  const formatISO = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
-  // Preset handlers
-  const handleSetToday = () => {
-    const today = formatISO(new Date());
-    onChangeStartDate(today);
-    onChangeEndDate(today);
-  };
-
-  const handleSetLast7Days = () => {
-    const now = new Date();
-    const past = new Date();
-    past.setDate(now.getDate() - 7);
-    onChangeStartDate(formatISO(past));
-    onChangeEndDate(formatISO(now));
-  };
-
-  const handleSetLast30Days = () => {
-    const now = new Date();
-    const past = new Date();
-    past.setDate(now.getDate() - 30);
-    onChangeStartDate(formatISO(past));
-    onChangeEndDate(formatISO(now));
-  };
-
-  const handleSetThisMonth = () => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    onChangeStartDate(formatISO(firstDay));
-    onChangeEndDate(formatISO(lastDay));
-  };
 
   return (
     <div className={`flex flex-col space-y-1.5 ${className}`}>
@@ -146,41 +106,6 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           </button>
         )}
       </div>
-
-      {/* Quick Presets */}
-      {!compact && (
-        <div className="flex flex-wrap items-center gap-1 pt-0.5">
-          <span className="text-[10px] text-slate-400 font-semibold mr-0.5">Cepat:</span>
-          <button
-            type="button"
-            onClick={handleSetToday}
-            className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 transition-colors cursor-pointer"
-          >
-            Hari Ini
-          </button>
-          <button
-            type="button"
-            onClick={handleSetLast7Days}
-            className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 transition-colors cursor-pointer"
-          >
-            7 Hari Terakhir
-          </button>
-          <button
-            type="button"
-            onClick={handleSetLast30Days}
-            className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 transition-colors cursor-pointer"
-          >
-            30 Hari Terakhir
-          </button>
-          <button
-            type="button"
-            onClick={handleSetThisMonth}
-            className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 transition-colors cursor-pointer"
-          >
-            Bulan Ini
-          </button>
-        </div>
-      )}
     </div>
   );
 };

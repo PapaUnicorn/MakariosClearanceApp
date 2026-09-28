@@ -964,119 +964,14 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
           />
         </div>
 
-        {/* Active Filter Chips & Reset All Filters */}
+        {/* Reset All Filters button if any filter is active */}
         {isAnyFilterActive && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-[11px] font-bold text-slate-400">Filter Aktif:</span>
-
-              {searchTerm && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 font-medium text-[11px] border border-slate-200">
-                  <span>Cari: "{searchTerm}"</span>
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm('')}
-                    className="hover:text-rose-600 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-
-              {selectedStudentId !== 'ALL' && activeSelectedStudent && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 font-semibold text-[11px] border border-purple-300">
-                  <span>Siswa: {activeSelectedStudent.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedStudentId('ALL')}
-                    className="hover:text-rose-700 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-
-              {selectedClasses.length > 0 && selectedClasses.length < classOptions.length && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold text-[11px] border border-amber-300">
-                  <span>Kelas: {selectedClasses.join(', ')}</span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedClasses(classOptions)}
-                    className="hover:text-rose-700 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-
-              {selectedCourses.length > 0 && selectedCourses.length < courseOptions.length && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 font-semibold text-[11px] border border-blue-300">
-                  <span>Mapel: {selectedCourses.join(', ')}</span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCourses(courseOptions)}
-                    className="hover:text-rose-700 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-
-              {selectedMonth !== 'ALL' && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold text-[11px] border border-amber-300">
-                  <span>
-                    Bulan: {monthOptions.find((m) => m.key === selectedMonth)?.label || selectedMonth} (
-                    {monthScopeMode === 'EXACT' ? 'Tepat' : 's/d Bulan'})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMonth('ALL')}
-                    className="hover:text-rose-700 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-
-              {(startDate || endDate) && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold text-[11px] border border-amber-300">
-                  <span>
-                    Rentang: {startDate ? formatIndonesianDateStr(startDate, true) : 'Awal'} s/d {endDate ? formatIndonesianDateStr(endDate, true) : 'Sekarang'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStartDate('');
-                      setEndDate('');
-                    }}
-                    className="hover:text-rose-700 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-
-              {selectedStatuses.length < statusOptions.length && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-semibold text-[11px] border border-emerald-300">
-                  <span>
-                    Status: {selectedStatuses.length === 0 ? 'Tidak ada dipilih' : selectedStatuses.map((s) => STATUS_LABELS[s] || s).join(', ')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedStatuses(statusOptions)}
-                    className="hover:text-rose-700 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-            </div>
-
+          <div className="pt-2 flex justify-end">
             <button
               type="button"
               id="btn-reset-filters"
               onClick={handleResetAllFilters}
-              className="text-xs font-bold text-amber-700 hover:text-amber-900 hover:underline cursor-pointer inline-flex items-center space-x-1 shrink-0 ml-auto"
+              className="text-xs font-bold text-amber-700 hover:text-amber-900 hover:underline cursor-pointer inline-flex items-center space-x-1"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset Semua Filter</span>
