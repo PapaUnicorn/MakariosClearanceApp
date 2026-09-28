@@ -474,8 +474,14 @@ export interface TeacherExportFilterOptions {
   selectedTeachers?: string[];
   selectedClasses?: string[];
   selectedCourses?: string[];
+  selectedMonth?: string;
+  monthFilter?: string;
   statusFilter?: string;
+  selectedStatuses?: string[];
   searchTerm?: string;
+  dateRangeFilter?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 /**
@@ -597,6 +603,19 @@ export function exportFilteredTeacherTasksToPDF(
     if (filterOptions.selectedCourses && filterOptions.selectedCourses.length > 0) {
       extraFilterTags.push(`Mapel: ${filterOptions.selectedCourses.join(', ')}`);
     }
+    if (filterOptions.dateRangeFilter) {
+      extraFilterTags.push(`Rentang: ${filterOptions.dateRangeFilter}`);
+    } else if (filterOptions.startDate || filterOptions.endDate) {
+      extraFilterTags.push(`Rentang: ${filterOptions.startDate || 'Awal'} s/d ${filterOptions.endDate || 'Sekarang'}`);
+    }
+    if (filterOptions.monthFilter && filterOptions.monthFilter !== 'ALL') {
+      extraFilterTags.push(`Bulan: ${filterOptions.monthFilter}`);
+    } else if (filterOptions.selectedMonth && filterOptions.selectedMonth !== 'ALL') {
+      extraFilterTags.push(`Bulan: ${filterOptions.selectedMonth}`);
+    }
+    if (filterOptions.selectedStatuses && filterOptions.selectedStatuses.length > 0) {
+      extraFilterTags.push(`Status: ${filterOptions.selectedStatuses.join(', ')}`);
+    }
     if (filterOptions.searchTerm) {
       extraFilterTags.push(`Cari: "${filterOptions.searchTerm}"`);
     }
@@ -628,6 +647,19 @@ export function exportFilteredTeacherTasksToPDF(
     }
     if (filterOptions.selectedCourses && filterOptions.selectedCourses.length > 0) {
       filterTags.push(`Mapel: ${filterOptions.selectedCourses.join(', ')}`);
+    }
+    if (filterOptions.dateRangeFilter) {
+      filterTags.push(`Rentang: ${filterOptions.dateRangeFilter}`);
+    } else if (filterOptions.startDate || filterOptions.endDate) {
+      filterTags.push(`Rentang: ${filterOptions.startDate || 'Awal'} s/d ${filterOptions.endDate || 'Sekarang'}`);
+    }
+    if (filterOptions.monthFilter && filterOptions.monthFilter !== 'ALL') {
+      filterTags.push(`Bulan: ${filterOptions.monthFilter}`);
+    } else if (filterOptions.selectedMonth && filterOptions.selectedMonth !== 'ALL') {
+      filterTags.push(`Bulan: ${filterOptions.selectedMonth}`);
+    }
+    if (filterOptions.selectedStatuses && filterOptions.selectedStatuses.length > 0) {
+      filterTags.push(`Status: ${filterOptions.selectedStatuses.join(', ')}`);
     }
     if (filterOptions.searchTerm) {
       filterTags.push(`Pencarian: "${filterOptions.searchTerm}"`);

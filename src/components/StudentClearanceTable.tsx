@@ -12,13 +12,17 @@ import {
   Calendar,
   FileDown,
   UserCheck,
+  X,
+  RotateCcw,
 } from 'lucide-react';
 import { StudentClearanceRecord, TaskStatusType, getTaskStatusInfo } from '../types';
 import { exportStudentsToPDF, exportStudentMonthlyProgressReportPDF } from '../utils/pdfExport';
 import { exportStudentMonthlyReportDocx } from '../utils/docxExport';
+import { isTaskInDateRange, formatIndonesianDateStr } from '../utils/dateFilter';
 import { StudentMonthlyReportModal } from './StudentMonthlyReportModal';
 import { MonthlyReport } from './MonthlyReport';
 import { ExcelMultiSelectFilter } from './ExcelMultiSelectFilter';
+import { DateRangeFilter } from './DateRangeFilter';
 
 interface StudentClearanceTableProps {
   records: StudentClearanceRecord[];
@@ -128,6 +132,8 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
   const [monthScopeMode, setMonthScopeMode] = useState<'EXACT' | 'CUMULATIVE'>('EXACT');
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(ALL_STATUS_OPTIONS);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('ALL');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const itemsPerPage = 20;
@@ -371,6 +377,12 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
       if (classOptions.length > 0 && !selectedClasses.includes(r.className)) return false;
       if (courseOptions.length > 0 && !selectedCourses.includes(r.courseName)) return false;
 
+      // Date Range Filter (Start Date & End Date)
+      if (startDate || endDate) {
+        if (r.taskStatus === 'ALL_CLEARED') return false;
+        if (!isTaskInDateRange(r, startDate, endDate)) return false;
+      }
+
       if (selectedMonth !== 'ALL') {
         const [targetYearStr, targetMonthStr] = selectedMonth.split('-');
         const targetYear = parseInt(targetYearStr, 10);
@@ -422,6 +434,8 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
     allFlattenedRows,
     selectedClasses,
     selectedCourses,
+    startDate,
+    endDate,
     selectedMonth,
     monthScopeMode,
     selectedStudentId,
@@ -498,6 +512,16 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
         return false;
       }
 
+      // Date Range filter (Start Date & End Date)
+      if (startDate || endDate) {
+        if (r.taskStatus === 'ALL_CLEARED') {
+          return false;
+        }
+        if (!isTaskInDateRange(r, startDate, endDate)) {
+          return false;
+        }
+      }
+
       // Month Filter (Bulan Tugas)
       if (selectedMonth !== 'ALL') {
         const [targetYearStr, targetMonthStr] = selectedMonth.split('-');
@@ -545,6 +569,8 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
     searchTerm,
     selectedClasses,
     selectedCourses,
+    startDate,
+    endDate,
     selectedMonth,
     monthScopeMode,
     selectedStatuses,
@@ -557,6 +583,7 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
   // Check if any filter is active
   const isAnyFilterActive = useMemo(() => {
     return (
+      Boolean(startDate || endDate) ||
       selectedMonth !== 'ALL' ||
       selectedStatuses.length < statusOptions.length ||
       selectedClasses.length < classOptions.length ||
@@ -565,6 +592,8 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
       selectedStudentId !== 'ALL'
     );
   }, [
+    startDate,
+    endDate,
     selectedMonth,
     selectedStatuses.length,
     statusOptions.length,
@@ -578,6 +607,8 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
 
   // Reset all filters back to default
   const handleResetAllFilters = () => {
+    setStartDate('');
+    setEndDate('');
     setSelectedMonth('ALL');
     setSelectedStatuses(statusOptions);
     setSelectedClasses(classOptions);
@@ -655,6 +686,11 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
     }
     if (selectedCourses.length < courseOptions.length) {
       filterInfoParts.push(`Mapel: ${selectedCourses.join(', ')}`);
+    }
+    if (startDate || endDate) {
+      const startLabel = startDate ? formatIndonesianDateStr(startDate, true) : 'Awal';
+      const endLabel = endDate ? formatIndonesianDateStr(endDate, true) : 'Sekarang';
+      filterInfoParts.push(`Rentang Waktu: ${startLabel} s/d ${endLabel}`);
     }
     if (selectedMonth !== 'ALL') {
       const found = monthOptions.find((m) => m.key === selectedMonth);
@@ -906,15 +942,143 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
           </div>
         </div>
 
-        {/* Reset All Filters button if any filter is active */}
+        {/* Row 2: Rentang Waktu Tugas (Start Date & End Date) */}
+        <div className="pt-3 border-t border-amber-100 bg-amber-50/40 p-3 rounded-xl border border-amber-200/60">
+          <DateRangeFilter
+            idPrefix="student-date-filter"
+            startDate={startDate}
+            endDate={endDate}
+            onChangeStartDate={(d) => {
+              setStartDate(d);
+              setCurrentPage(1);
+            }}
+            onChangeEndDate={(d) => {
+              setEndDate(d);
+              setCurrentPage(1);
+            }}
+            onReset={() => {
+              setStartDate('');
+              setEndDate('');
+              setCurrentPage(1);
+            }}
+          />
+        </div>
+
+        {/* Active Filter Chips & Reset All Filters */}
         {isAnyFilterActive && (
-          <div className="pt-2 flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-[11px] font-bold text-slate-400">Filter Aktif:</span>
+
+              {searchTerm && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 font-medium text-[11px] border border-slate-200">
+                  <span>Cari: "{searchTerm}"</span>
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="hover:text-rose-600 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {selectedStudentId !== 'ALL' && activeSelectedStudent && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 font-semibold text-[11px] border border-purple-300">
+                  <span>Siswa: {activeSelectedStudent.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStudentId('ALL')}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {selectedClasses.length > 0 && selectedClasses.length < classOptions.length && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold text-[11px] border border-amber-300">
+                  <span>Kelas: {selectedClasses.join(', ')}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClasses(classOptions)}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {selectedCourses.length > 0 && selectedCourses.length < courseOptions.length && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 font-semibold text-[11px] border border-blue-300">
+                  <span>Mapel: {selectedCourses.join(', ')}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCourses(courseOptions)}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {selectedMonth !== 'ALL' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold text-[11px] border border-amber-300">
+                  <span>
+                    Bulan: {monthOptions.find((m) => m.key === selectedMonth)?.label || selectedMonth} (
+                    {monthScopeMode === 'EXACT' ? 'Tepat' : 's/d Bulan'})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMonth('ALL')}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {(startDate || endDate) && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold text-[11px] border border-amber-300">
+                  <span>
+                    Rentang: {startDate ? formatIndonesianDateStr(startDate, true) : 'Awal'} s/d {endDate ? formatIndonesianDateStr(endDate, true) : 'Sekarang'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartDate('');
+                      setEndDate('');
+                    }}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {selectedStatuses.length < statusOptions.length && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-semibold text-[11px] border border-emerald-300">
+                  <span>
+                    Status: {selectedStatuses.length === 0 ? 'Tidak ada dipilih' : selectedStatuses.map((s) => STATUS_LABELS[s] || s).join(', ')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStatuses(statusOptions)}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+
             <button
               type="button"
               id="btn-reset-filters"
               onClick={handleResetAllFilters}
-              className="text-xs font-bold text-amber-700 hover:text-amber-900 hover:underline cursor-pointer inline-flex items-center space-x-1"
+              className="text-xs font-bold text-amber-700 hover:text-amber-900 hover:underline cursor-pointer inline-flex items-center space-x-1 shrink-0 ml-auto"
             >
+              <RotateCcw className="w-3 h-3" />
               <span>Reset Semua Filter</span>
             </button>
           </div>
@@ -931,6 +1095,14 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
               <span className="text-[10px] font-black bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full border border-amber-300">
                 Bulan: {monthOptions.find((m) => m.key === selectedMonth)?.label || selectedMonth} (
                 {monthScopeMode === 'EXACT' ? 'Tepat Bulan' : 's/d Bulan Ini'})
+              </span>
+            )}
+            {(startDate || endDate) && (
+              <span className="text-[10px] font-black bg-amber-200 text-amber-950 px-2.5 py-0.5 rounded-full border border-amber-300 flex items-center space-x-1">
+                <Calendar className="w-3 h-3 text-amber-800" />
+                <span>
+                  Rentang: {startDate ? formatIndonesianDateStr(startDate, true) : 'Awal'} s/d {endDate ? formatIndonesianDateStr(endDate, true) : 'Sekarang'}
+                </span>
               </span>
             )}
             <span className="text-[10px] font-black bg-[#FFC800] text-slate-950 px-2 py-0.5 rounded-full border border-amber-400">

@@ -229,6 +229,10 @@ export interface TeacherUngradedTaskItem {
   courseWorkTitle: string;
   courseWorkLink?: string;
   dueDateStr?: string;
+  dueYear?: number;
+  dueMonth?: number;
+  dueDay?: number;
+  creationTime?: string;
   maxPoints?: number;
   ungradedCount: number;
   ungradedStudents: {
@@ -303,6 +307,10 @@ export interface FlattenedTeacherTaskRow {
   courseWorkTitle: string;
   courseWorkLink?: string;
   dueDateStr?: string;
+  dueYear?: number;
+  dueMonth?: number;
+  dueDay?: number;
+  creationTime?: string;
   ungradedCount: number;
   ungradedStudents: {
     studentId: string;

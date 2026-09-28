@@ -6,8 +6,14 @@ export interface TeacherExportFilterOptions {
   selectedTeachers?: string[];
   selectedClasses?: string[];
   selectedCourses?: string[];
+  selectedMonth?: string;
+  monthFilter?: string;
   statusFilter?: string;
+  selectedStatuses?: string[];
   searchTerm?: string;
+  dateRangeFilter?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 /**
@@ -54,7 +60,19 @@ export function exportFilteredTeacherTasksToXLSX(
   if (filterOptions.selectedCourses && filterOptions.selectedCourses.length > 0) {
     filterDescParts.push(`Mapel: ${filterOptions.selectedCourses.join(', ')}`);
   }
-  if (filterOptions.statusFilter && filterOptions.statusFilter !== 'ALL') {
+  if (filterOptions.dateRangeFilter) {
+    filterDescParts.push(`Rentang Tanggal: ${filterOptions.dateRangeFilter}`);
+  } else if (filterOptions.startDate || filterOptions.endDate) {
+    filterDescParts.push(`Rentang Tanggal: ${filterOptions.startDate || 'Awal'} s/d ${filterOptions.endDate || 'Sekarang'}`);
+  }
+  if (filterOptions.monthFilter && filterOptions.monthFilter !== 'ALL') {
+    filterDescParts.push(`Bulan: ${filterOptions.monthFilter}`);
+  } else if (filterOptions.selectedMonth && filterOptions.selectedMonth !== 'ALL') {
+    filterDescParts.push(`Bulan: ${filterOptions.selectedMonth}`);
+  }
+  if (filterOptions.selectedStatuses && filterOptions.selectedStatuses.length > 0) {
+    filterDescParts.push(`Status: ${filterOptions.selectedStatuses.join(', ')}`);
+  } else if (filterOptions.statusFilter && filterOptions.statusFilter !== 'ALL') {
     filterDescParts.push(`Status: ${filterOptions.statusFilter === 'CLEAR' ? 'Clear' : 'Perlu Grading'}`);
   }
   if (filterOptions.searchTerm) {
