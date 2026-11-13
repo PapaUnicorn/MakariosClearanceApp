@@ -3,6 +3,7 @@ import { User } from 'firebase/auth';
 import {
   initAuth,
   googleSignIn,
+  googleDirectSignIn,
   logout,
 } from './services/firebase';
 import { compileClearanceData } from './services/classroom';
@@ -129,7 +130,7 @@ export default function App() {
     }
   }, [token, loadClassroomData]);
 
-  // Handle Login
+  // Handle Login (Firebase Auth Popup)
   const handleLogin = async () => {
     setIsLoggingIn(true);
     setLoginError(null);
@@ -151,6 +152,22 @@ export default function App() {
       }
       console.error('Login failed:', err);
       setLoginError(err.message || 'Login dengan Google gagal. Silakan coba lagi.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Handle Direct OAuth Login Fallback (Google Identity Services)
+  const handleDirectLogin = async () => {
+    setIsLoggingIn(true);
+    setLoginError(null);
+    try {
+      const res = await googleDirectSignIn();
+      setUser(res.user);
+      setToken(res.accessToken);
+    } catch (err: any) {
+      console.error('Direct OAuth login failed:', err);
+      setLoginError(err.message || 'Login Google OAuth langsung gagal. Silakan coba lagi.');
     } finally {
       setIsLoggingIn(false);
     }
@@ -252,7 +269,14 @@ export default function App() {
 
   // If not logged in
   if (!user || !token) {
-    return <LoginScreen onLogin={handleLogin} isLoading={isLoggingIn} error={loginError} />;
+    return (
+      <LoginScreen
+        onLogin={handleLogin}
+        onDirectLogin={handleDirectLogin}
+        isLoading={isLoggingIn}
+        error={loginError}
+      />
+    );
   }
 
   return (

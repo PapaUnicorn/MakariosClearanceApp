@@ -20,11 +20,12 @@ import defaultConfig from '../../firebase-applet-config.json';
 
 interface LoginScreenProps {
   onLogin: () => void;
+  onDirectLogin?: () => void;
   isLoading: boolean;
   error?: string | null;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, error }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDirectLogin, isLoading, error }) => {
   const [copied, setCopied] = useState(false);
   const [showOauthGuide, setShowOauthGuide] = useState(false);
   const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
@@ -306,6 +307,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, er
               </div>
             )}
           </button>
+
+          {onDirectLogin && (
+            <button
+              id="btn-google-direct-login"
+              type="button"
+              onClick={onDirectLogin}
+              disabled={isLoading}
+              className={`mt-2.5 w-full flex items-center justify-center px-4 py-2.5 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                error
+                  ? 'border-amber-400 bg-[#FFC800] hover:bg-amber-400 text-slate-950 shadow-xs'
+                  : 'border-slate-200 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-700'
+              } ${isLoading ? 'opacity-60 cursor-wait' : 'active:scale-[0.99]'}`}
+            >
+              <span>Login Alternatif (Google OAuth Langsung)</span>
+            </button>
+          )}
 
           {isInIframe && (
             <div className="mt-2.5 text-center">
