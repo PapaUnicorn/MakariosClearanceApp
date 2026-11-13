@@ -14,48 +14,22 @@ import {
   UserCheck,
   X,
   RotateCcw,
+  FileSpreadsheet,
+  CheckSquare,
 } from 'lucide-react';
-import { StudentClearanceRecord, TaskStatusType, getTaskStatusInfo } from '../types';
+import { StudentClearanceRecord, TaskStatusType, FlattenedStudentTaskRow, getTaskStatusInfo } from '../types';
 import { exportStudentsToPDF, exportStudentMonthlyProgressReportPDF } from '../utils/pdfExport';
 import { exportStudentMonthlyReportDocx } from '../utils/docxExport';
+import { exportFilteredStudentTasksToXLSX } from '../utils/excelExport';
 import { isTaskInDateRange, formatIndonesianDateStr } from '../utils/dateFilter';
 import { StudentMonthlyReportModal } from './StudentMonthlyReportModal';
+import { ClearanceChecklistModal } from './ClearanceChecklistModal';
 import { MonthlyReport } from './MonthlyReport';
 import { ExcelMultiSelectFilter } from './ExcelMultiSelectFilter';
-import { DateRangeFilter } from './DateRangeFilter';
 
 interface StudentClearanceTableProps {
   records: StudentClearanceRecord[];
   onSelectStudent: (record: StudentClearanceRecord) => void;
-}
-
-export interface FlattenedStudentTaskRow {
-  rowId: string;
-  studentId: string;
-  studentName: string;
-  studentEmail: string;
-  studentPhoto?: string;
-  className: string;
-  courseId: string;
-  courseName: string;
-  courseLink?: string;
-  taskTitle: string;
-  taskLink?: string;
-  dueDateStr: string;
-  dueYear?: number;
-  dueMonth?: number;
-  dueDay?: number;
-  creationTime?: string;
-  maxPoints?: number;
-  assignedGrade?: number;
-  late?: boolean;
-  taskStatus: TaskStatusType | 'ALL_CLEARED';
-  statusLabel: string;
-  statusBadgeClass: string;
-  isClear: boolean;
-  overallScore?: number;
-  overallScoreStr?: string;
-  parentRecord: StudentClearanceRecord;
 }
 
 const INDONESIAN_MONTH_NAMES = [
@@ -136,10 +110,24 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
   const [endDate, setEndDate] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
+  const [exportFeedback, setExportFeedback] = useState<string | null>(null);
   const itemsPerPage = 20;
 
   // Monthly Report Modal State
   const [reportModal, setReportModal] = useState<{
+    isOpen: boolean;
+    studentName: string;
+    className: string;
+    studentRecords: StudentClearanceRecord[];
+  }>({
+    isOpen: false,
+    studentName: '',
+    className: '',
+    studentRecords: [],
+  });
+
+  // Clearance Checklist Modal State
+  const [checklistModal, setChecklistModal] = useState<{
     isOpen: boolean;
     studentName: string;
     className: string;
@@ -644,6 +632,19 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
     });
   };
 
+  // Open Clearance Checklist Modal for a student
+  const handleOpenClearanceChecklistModal = (studentName: string, className: string, studentId: string) => {
+    const studentRecords = records.filter(
+      (r) => r.studentId === studentId || r.studentName.toLowerCase() === studentName.toLowerCase()
+    );
+    setChecklistModal({
+      isOpen: true,
+      studentName,
+      className,
+      studentRecords,
+    });
+  };
+
   // Direct export PDF for a single selected student
   const handleDirectExportPDF = (studentName: string, className: string, studentId: string) => {
     const studentRecords = records.filter(
@@ -677,7 +678,44 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
     }
   };
 
-  // PDF Export All / Rekapitulasi
+  // Excel (.xlsx) Export Filtered Student Tasks
+  const handleExportStudentXLSX = () => {
+    if (filteredRows.length === 0) return;
+
+    try {
+      const dateRangeLabel = (startDate || endDate)
+        ? `${startDate ? formatIndonesianDateStr(startDate, true) : 'Awal'} s/d ${endDate ? formatIndonesianDateStr(endDate, true) : 'Sekarang'}`
+        : undefined;
+
+      const selectedMonthLabel = selectedMonth !== 'ALL'
+        ? monthOptions.find((m) => m.key === selectedMonth)?.label || selectedMonth
+        : undefined;
+
+      exportFilteredStudentTasksToXLSX(filteredRows, {
+        selectedStudentName: activeSelectedStudent ? activeSelectedStudent.name : undefined,
+        selectedClasses: selectedClasses.length < classOptions.length ? selectedClasses : undefined,
+        selectedCourses: selectedCourses.length < courseOptions.length ? selectedCourses : undefined,
+        dateRangeFilter: dateRangeLabel,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        selectedMonth: selectedMonth !== 'ALL' ? selectedMonth : undefined,
+        monthFilter: selectedMonthLabel,
+        selectedStatuses: selectedStatuses.length < statusOptions.length
+          ? selectedStatuses.map((k) => STATUS_LABELS[k] || k)
+          : undefined,
+        searchTerm,
+      });
+
+      setExportFeedback('File XLSX berhasil diunduh!');
+      setTimeout(() => setExportFeedback(null), 3500);
+    } catch (err) {
+      console.error('Export XLSX error:', err);
+      setExportFeedback('Gagal mengunduh XLSX. Silakan coba lagi.');
+      setTimeout(() => setExportFeedback(null), 3500);
+    }
+  };
+
+  // PDF Export All / Rekapitulasi (fallback function kept for internal/reference use)
   const handleExportAllPDF = () => {
     if (filteredSourceRecords.length === 0) return;
     const filterInfoParts: string[] = [];
@@ -735,118 +773,9 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
               </button>
             )}
           </div>
-
-          {/* Export Rekapitulasi PDF & Laporan Bulanan A4 */}
-          <div className="flex items-center space-x-2">
-            <button
-              id="btn-open-monthly-report"
-              onClick={() => setIsAllStudentsMonthlyReportOpen(true)}
-              className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border border-amber-400"
-              title="Buka Laporan Bulanan Seluruh Siswa & Cetak A4"
-            >
-              <Printer className="w-4 h-4 text-slate-950" />
-              <span>Laporan Bulanan (A4)</span>
-            </button>
-
-            <button
-              id="btn-export-student-pdf"
-              onClick={handleExportAllPDF}
-              disabled={filteredRows.length === 0}
-              className="inline-flex items-center justify-center space-x-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border border-slate-800"
-              title="Unduh Rekapitulasi PDF (Semua Siswa Terfilter)"
-            >
-              <FileText className="w-4 h-4 text-[#FFC800]" />
-              <span>Ekspor Rekap PDF</span>
-            </button>
-          </div>
         </div>
 
-        {/* Dedicated Single Student Selector & Export Bar with Maybank Yellow styling */}
-        <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center space-x-2.5 flex-1 min-w-[260px]">
-            <div className="p-2 bg-[#FFC800] text-slate-950 font-black rounded-lg shadow-2xs shrink-0 border border-amber-400">
-              <UserCheck className="w-4 h-4" />
-            </div>
-            <div className="flex-1">
-              <label className="block text-[10px] font-black text-slate-900 uppercase tracking-wider mb-0.5">
-                Pilih Satu Siswa untuk Ekspor Rapor (.DOCX / .PDF)
-              </label>
-              <select
-                id="select-single-student"
-                value={selectedStudentId}
-                onChange={(e) => {
-                  setSelectedStudentId(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-amber-500 cursor-pointer shadow-2xs"
-              >
-                <option value="ALL">-- Pilih Siswa Tertentu ({uniqueStudents.length} Siswa) --</option>
-                {uniqueStudents.map((st) => (
-                  <option key={st.id} value={st.id}>
-                    {st.name} ({st.className})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Action buttons if single user is selected */}
-          {activeSelectedStudent ? (
-            <div className="flex items-center space-x-2 shrink-0 self-end md:self-center">
-              <button
-                onClick={() =>
-                  handleOpenStudentReportModal(
-                    activeSelectedStudent.name,
-                    activeSelectedStudent.className,
-                    activeSelectedStudent.id
-                  )
-                }
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-amber-50 text-slate-900 text-xs font-bold rounded-lg border border-amber-300 shadow-2xs transition-all active:scale-95 cursor-pointer"
-                title="Lihat Pratinjau Rapor Siswa Terpilih"
-              >
-                <Eye className="w-3.5 h-3.5 text-slate-700" />
-                <span>Pratinjau Rapor</span>
-              </button>
-
-              <button
-                onClick={() =>
-                  handleDirectExportPDF(
-                    activeSelectedStudent.name,
-                    activeSelectedStudent.className,
-                    activeSelectedStudent.id
-                  )
-                }
-                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#FFC800] hover:bg-amber-400 text-slate-950 text-xs font-black rounded-lg shadow-2xs border border-amber-400 transition-all active:scale-95 cursor-pointer"
-                title="Unduh Rapor PDF Siswa Terpilih"
-              >
-                <FileDown className="w-3.5 h-3.5" />
-                <span>Ekspor PDF ({activeSelectedStudent.name.split(' ')[0]})</span>
-              </button>
-
-              <button
-                onClick={() =>
-                  handleDirectExportDocx(
-                    activeSelectedStudent.name,
-                    activeSelectedStudent.className,
-                    activeSelectedStudent.id
-                  )
-                }
-                disabled={isExportingDocx}
-                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-amber-300 text-xs font-bold rounded-lg shadow-2xs border border-slate-800 transition-all active:scale-95 cursor-pointer"
-                title="Unduh Rapor Word DOCX Siswa Terpilih"
-              >
-                <FileDown className="w-3.5 h-3.5 text-[#FFC800]" />
-                <span>{isExportingDocx ? 'Membuat DOCX...' : `Ekspor .DOCX (${activeSelectedStudent.name.split(' ')[0]})`}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="text-[11px] text-amber-900/80 font-medium italic hidden md:block">
-              Pilih siswa di atas atau klik tombol <b>PDF</b> / <b>DOCX</b> pada baris tabel di bawah.
-            </div>
-          )}
-        </div>
-
-        {/* Filter Controls with Excel Multi-Select Checkboxes & Month Selector */}
+        {/* Row 1: Filter Kelas, Mata Pelajaran, Bulan Tugas, Filter Status Tugas (Paling Atas) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-amber-100">
           <div>
             <ExcelMultiSelectFilter
@@ -942,26 +871,209 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
           </div>
         </div>
 
-        {/* Row 2: Rentang Waktu Tugas (Start Date & End Date) */}
-        <div className="pt-3 border-t border-amber-100 bg-amber-50/40 p-3 rounded-xl border border-amber-200/60">
-          <DateRangeFilter
-            idPrefix="student-date-filter"
-            startDate={startDate}
-            endDate={endDate}
-            onChangeStartDate={(d) => {
-              setStartDate(d);
-              setCurrentPage(1);
-            }}
-            onChangeEndDate={(d) => {
-              setEndDate(d);
-              setCurrentPage(1);
-            }}
-            onReset={() => {
-              setStartDate('');
-              setEndDate('');
-              setCurrentPage(1);
-            }}
-          />
+        {/* Row 2: Menyusul (dari kiri ke kanan): Nama Siswa, Rentang Waktu Tugas Dari, Rentang Waktu Tugas Ke */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-amber-100">
+          {/* 1. Nama Siswa */}
+          <div className="sm:col-span-2 lg:col-span-2 flex flex-col justify-between">
+            <div>
+              <label
+                htmlFor="select-single-student"
+                className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-1 mb-1"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-amber-500" />
+                <span>Nama Siswa</span>
+              </label>
+              <select
+                id="select-single-student"
+                value={selectedStudentId}
+                onChange={(e) => {
+                  setSelectedStudentId(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-amber-500 cursor-pointer shadow-2xs"
+              >
+                <option value="ALL">-- Pilih Nama Siswa ({uniqueStudents.length} Siswa) --</option>
+                {uniqueStudents.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name} ({st.className})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Kelompok Tombol Export: (pratinjau, export to pdf, export to docs, and export to excel) */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5 p-2 bg-amber-50/80 border border-amber-200 rounded-xl">
+              <span className="text-[11px] font-bold text-amber-900 mr-1 shrink-0">
+                {activeSelectedStudent ? `Rapor (${activeSelectedStudent.name.split(' ')[0]}):` : 'Aksi Ekspor:'}
+              </span>
+
+              {/* 1. Pratinjau Rapor */}
+              <button
+                type="button"
+                id="btn-preview-student-report"
+                onClick={() => {
+                  const target = activeSelectedStudent || (uniqueStudents.length > 0 ? uniqueStudents[0] : null);
+                  if (target) {
+                    handleOpenStudentReportModal(target.name, target.className, target.id);
+                  }
+                }}
+                disabled={uniqueStudents.length === 0}
+                className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-white hover:bg-amber-50 disabled:opacity-50 text-slate-900 text-xs font-bold rounded-lg border border-amber-300 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                title={activeSelectedStudent ? `Lihat Pratinjau Rapor ${activeSelectedStudent.name}` : 'Lihat Pratinjau Rapor Siswa'}
+              >
+                <Eye className="w-3.5 h-3.5 text-slate-700" />
+                <span>Pratinjau Rapor</span>
+              </button>
+
+              {/* Clearance Checklist */}
+              <button
+                type="button"
+                id="btn-preview-clearance-checklist"
+                onClick={() => {
+                  const target = activeSelectedStudent || (uniqueStudents.length > 0 ? uniqueStudents[0] : null);
+                  if (target) {
+                    handleOpenClearanceChecklistModal(target.name, target.className, target.id);
+                  }
+                }}
+                disabled={uniqueStudents.length === 0}
+                className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 text-amber-950 text-xs font-black rounded-lg border border-amber-300 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                title={activeSelectedStudent ? `Buka Preview Clearance Checklist ${activeSelectedStudent.name}` : 'Buka Preview Clearance Checklist'}
+              >
+                <CheckSquare className="w-3.5 h-3.5 text-amber-700" />
+                <span>Clearance Checklist</span>
+              </button>
+
+              {/* 2. Export to PDF */}
+              <button
+                type="button"
+                id="btn-export-student-pdf"
+                onClick={() => {
+                  const target = activeSelectedStudent || (uniqueStudents.length > 0 ? uniqueStudents[0] : null);
+                  if (target) {
+                    handleDirectExportPDF(target.name, target.className, target.id);
+                  }
+                }}
+                disabled={uniqueStudents.length === 0}
+                className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-[#FFC800] hover:bg-amber-400 disabled:opacity-50 text-slate-950 text-xs font-black rounded-lg shadow-2xs border border-amber-400 transition-all active:scale-95 cursor-pointer"
+                title={activeSelectedStudent ? `Unduh Rapor PDF ${activeSelectedStudent.name}` : 'Unduh Rapor PDF Siswa'}
+              >
+                <FileDown className="w-3.5 h-3.5 text-slate-950" />
+                <span>Export to PDF</span>
+              </button>
+
+              {/* 3. Export to Docs */}
+              <button
+                type="button"
+                id="btn-export-student-docx"
+                onClick={() => {
+                  const target = activeSelectedStudent || (uniqueStudents.length > 0 ? uniqueStudents[0] : null);
+                  if (target) {
+                    handleDirectExportDocx(target.name, target.className, target.id);
+                  }
+                }}
+                disabled={uniqueStudents.length === 0 || isExportingDocx}
+                className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-amber-300 text-xs font-bold rounded-lg shadow-2xs border border-slate-800 transition-all active:scale-95 cursor-pointer"
+                title={activeSelectedStudent ? `Unduh Rapor Word DOCX ${activeSelectedStudent.name}` : 'Unduh Rapor Word DOCX Siswa'}
+              >
+                <FileText className="w-3.5 h-3.5 text-[#FFC800]" />
+                <span>{isExportingDocx ? 'Membuat DOCX...' : 'Export to Docs'}</span>
+              </button>
+
+              {/* 4. Export to Excel */}
+              <button
+                type="button"
+                id="btn-export-student-xlsx"
+                onClick={handleExportStudentXLSX}
+                disabled={filteredRows.length === 0}
+                className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-2xs border border-emerald-800 transition-all active:scale-95 cursor-pointer"
+                title={`Unduh seluruh rekapitulasi data terfilter (${filteredRows.length} baris tugas) dalam format Microsoft Excel (.xlsx)`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
+                <span>Export to Excel</span>
+              </button>
+
+              {exportFeedback && (
+                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md animate-fade-in ml-auto">
+                  {exportFeedback}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Rentang Waktu Tugas: Dari */}
+          <div className="flex flex-col">
+            <label
+              htmlFor="student-date-filter-start-date"
+              className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-1 mb-1"
+            >
+              <Calendar className="w-3.5 h-3.5 text-amber-500" />
+              <span>Rentang Waktu: Dari</span>
+            </label>
+            <div className="relative">
+              <input
+                id="student-date-filter-start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-semibold focus:outline-none focus:border-amber-500 focus:bg-white shadow-2xs cursor-pointer transition-colors"
+                title="Pilih tanggal mulai"
+              />
+              {startDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartDate('');
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 cursor-pointer p-0.5"
+                  title="Hapus tanggal mulai"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Rentang Waktu Tugas: Ke */}
+          <div className="flex flex-col">
+            <label
+              htmlFor="student-date-filter-end-date"
+              className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-1 mb-1"
+            >
+              <Calendar className="w-3.5 h-3.5 text-amber-500" />
+              <span>Rentang Waktu: Ke</span>
+            </label>
+            <div className="relative">
+              <input
+                id="student-date-filter-end-date"
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-semibold focus:outline-none focus:border-amber-500 focus:bg-white shadow-2xs cursor-pointer transition-colors"
+                title="Pilih tanggal akhir"
+              />
+              {endDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEndDate('');
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 cursor-pointer p-0.5"
+                  title="Hapus tanggal akhir"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Reset All Filters button if any filter is active */}
@@ -1000,9 +1112,6 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
                 </span>
               </span>
             )}
-            <span className="text-[10px] font-black bg-[#FFC800] text-slate-950 px-2 py-0.5 rounded-full border border-amber-400">
-              Monitoring Kurikulum
-            </span>
           </div>
           <span className="text-xs text-slate-500 font-medium">
             Menampilkan {paginatedRows.length} dari {filteredRows.length} baris tugas
@@ -1195,6 +1304,18 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              handleOpenClearanceChecklistModal(row.studentName, row.className, row.studentId);
+                            }}
+                            className="inline-flex items-center space-x-1 px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 rounded-lg text-xs font-bold border border-amber-300 transition-colors active:scale-95 cursor-pointer shadow-2xs"
+                            title="Buka Clearance Checklist Siswa Ini"
+                          >
+                            <CheckSquare className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Checklist</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               handleDirectExportPDF(row.studentName, row.className, row.studentId);
                             }}
                             className="inline-flex items-center space-x-1 px-2 py-1 bg-[#FFC800] hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-black border border-amber-400 transition-colors active:scale-95 cursor-pointer shadow-2xs"
@@ -1266,6 +1387,26 @@ export const StudentClearanceTable: React.FC<StudentClearanceTableProps> = ({
           initialMonth={selectedMonth !== 'ALL' ? parseInt(selectedMonth.split('-')[1], 10) : undefined}
           onClose={() =>
             setReportModal({
+              isOpen: false,
+              studentName: '',
+              className: '',
+              studentRecords: [],
+            })
+          }
+        />
+      )}
+
+      {/* Clearance Checklist Modal (Single Student) */}
+      {checklistModal.isOpen && (
+        <ClearanceChecklistModal
+          studentName={checklistModal.studentName}
+          className={checklistModal.className}
+          records={checklistModal.studentRecords}
+          isOpen={checklistModal.isOpen}
+          initialYear={selectedMonth !== 'ALL' ? parseInt(selectedMonth.split('-')[0], 10) : undefined}
+          initialMonth={selectedMonth !== 'ALL' ? parseInt(selectedMonth.split('-')[1], 10) : undefined}
+          onClose={() =>
+            setChecklistModal({
               isOpen: false,
               studentName: '',
               className: '',

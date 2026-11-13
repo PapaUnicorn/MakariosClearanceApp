@@ -1,6 +1,6 @@
 {
   "name": "Makarios Clearance App",
-  "description": "Aplikasi rekap clearance siswa & guru, Curriculum Audit & RPP Readiness, Gradebook Aggregator lintas kelas dengan Early Warning System, dan Analisis Kinerja & SLA Guru Google Classroom.",
+  "description": "Aplikasi rekapitulasi clearance tugas siswa dan grading hub guru terintegrasi dengan Google Classroom.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

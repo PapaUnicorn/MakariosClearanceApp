@@ -322,6 +322,35 @@ export interface FlattenedTeacherTaskRow {
   parentRecord: TeacherSummaryRecord;
 }
 
+export interface FlattenedStudentTaskRow {
+  rowId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  studentPhoto?: string;
+  className: string;
+  courseId: string;
+  courseName: string;
+  courseLink?: string;
+  taskTitle: string;
+  taskLink?: string;
+  dueDateStr: string;
+  dueYear?: number;
+  dueMonth?: number;
+  dueDay?: number;
+  creationTime?: string;
+  maxPoints?: number;
+  assignedGrade?: number;
+  late?: boolean;
+  taskStatus: TaskStatusType | 'ALL_CLEARED';
+  statusLabel: string;
+  statusBadgeClass: string;
+  isClear: boolean;
+  overallScore?: number;
+  overallScoreStr?: string;
+  parentRecord: StudentClearanceRecord;
+}
+
 export interface SyncProgressState {
   isSyncing: boolean;
   totalCourses: number;

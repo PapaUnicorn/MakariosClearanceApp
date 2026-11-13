@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { FlattenedTeacherTaskRow, TeacherSummaryRecord } from '../types';
+import { FlattenedTeacherTaskRow, FlattenedStudentTaskRow, TeacherSummaryRecord } from '../types';
 
 export interface TeacherExportFilterOptions {
   singleTeacherName?: string;
@@ -254,4 +254,189 @@ export function exportSingleTeacherRecordToXLSX(record: TeacherSummaryRecord) {
     singleTeacherName: record.teacherName,
   });
 }
+
+export interface StudentExportFilterOptions {
+  selectedStudentName?: string;
+  selectedClasses?: string[];
+  selectedCourses?: string[];
+  selectedMonth?: string;
+  monthFilter?: string;
+  selectedStatuses?: string[];
+  searchTerm?: string;
+  dateRangeFilter?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+/**
+ * Export filtered student clearance task rows directly to Microsoft Excel (.xlsx)
+ * Exactly matching what is displayed in the student clearance table.
+ */
+export function exportFilteredStudentTasksToXLSX(
+  rows: FlattenedStudentTaskRow[],
+  filterOptions: StudentExportFilterOptions = {}
+): void {
+  if (!rows || rows.length === 0) return;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const timeStr = now.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const uniqueStudents = Array.from(new Set(rows.map((r) => r.studentName)));
+  const isSingleStudent =
+    uniqueStudents.length === 1 ||
+    Boolean(filterOptions.selectedStudentName);
+
+  const targetStudentName =
+    filterOptions.selectedStudentName ||
+    (uniqueStudents.length === 1 ? uniqueStudents[0] : undefined);
+
+  // Construct active filter description
+  const filterDescParts: string[] = [];
+  if (targetStudentName) {
+    filterDescParts.push(`Siswa: ${targetStudentName}`);
+  }
+  if (filterOptions.selectedClasses && filterOptions.selectedClasses.length > 0) {
+    filterDescParts.push(`Kelas: ${filterOptions.selectedClasses.join(', ')}`);
+  }
+  if (filterOptions.selectedCourses && filterOptions.selectedCourses.length > 0) {
+    filterDescParts.push(`Mapel: ${filterOptions.selectedCourses.join(', ')}`);
+  }
+  if (filterOptions.dateRangeFilter) {
+    filterDescParts.push(`Rentang Tanggal: ${filterOptions.dateRangeFilter}`);
+  } else if (filterOptions.startDate || filterOptions.endDate) {
+    filterDescParts.push(`Rentang Tanggal: ${filterOptions.startDate || 'Awal'} s/d ${filterOptions.endDate || 'Sekarang'}`);
+  }
+  if (filterOptions.monthFilter && filterOptions.monthFilter !== 'ALL') {
+    filterDescParts.push(`Bulan: ${filterOptions.monthFilter}`);
+  } else if (filterOptions.selectedMonth && filterOptions.selectedMonth !== 'ALL') {
+    filterDescParts.push(`Bulan: ${filterOptions.selectedMonth}`);
+  }
+  if (filterOptions.selectedStatuses && filterOptions.selectedStatuses.length > 0) {
+    filterDescParts.push(`Status: ${filterOptions.selectedStatuses.join(', ')}`);
+  }
+  if (filterOptions.searchTerm) {
+    filterDescParts.push(`Pencarian: "${filterOptions.searchTerm}"`);
+  }
+  const filterSummary = filterDescParts.length > 0 ? filterDescParts.join(' | ') : 'Semua Data (Tanpa Filter)';
+
+  const titleHeader = isSingleStudent && targetStudentName
+    ? `LAPORAN STATUS CLEARANCE TUGAS SISWA - ${targetStudentName.toUpperCase()}`
+    : 'LAPORAN REKAPITULASI STATUS CLEARANCE TUGAS SISWA';
+
+  // Build Sheet Data Array-of-Arrays
+  const aoaData: (string | number)[][] = [
+    // Row 1: Brand / School Title
+    ['MAKARIOS CHRISTIAN SCHOOL', '', '', '', '', '', '', ''],
+    // Row 2: Document Subject
+    [titleHeader, '', '', '', '', '', '', ''],
+    // Row 3: Metadata - Generation Date & Time
+    [`Tanggal Unduh: ${dateStr}, ${timeStr}`, '', '', '', '', '', '', ''],
+    // Row 4: Applied Filter Summary
+    [`Filter Aktif: ${filterSummary}`, '', '', '', '', '', '', ''],
+    // Row 5: Blank separator
+    [],
+    // Row 6: Table Column Headers (Exact matching Student Clearance Table)
+    [
+      'NO',
+      'NAMA SISWA',
+      'KELAS',
+      'NAMA MATA PELAJARAN',
+      'OVERALL SCORE',
+      'NAMA TUGAS',
+      'DEADLINE',
+      'STATUS TUGAS',
+      'STATUS CLEARANCE',
+    ],
+  ];
+
+  // Data rows
+  rows.forEach((row, idx) => {
+    const clearanceText = row.isClear ? 'CLEAR (Tuntas)' : 'BELUM CLEAR (Pending)';
+    const scoreText = row.overallScoreStr || (row.overallScore !== undefined ? `${row.overallScore}%` : '-');
+    const deadlineText = row.dueDateStr || '-';
+
+    aoaData.push([
+      idx + 1,
+      row.studentName || '-',
+      row.className || '-',
+      row.courseName || '-',
+      scoreText,
+      row.taskTitle || '-',
+      deadlineText,
+      row.statusLabel || row.taskStatus || '-',
+      clearanceText,
+    ]);
+  });
+
+  // Create worksheet
+  const ws = XLSX.utils.aoa_to_sheet(aoaData);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 6 },  // No
+    { wch: 28 }, // Nama Siswa
+    { wch: 14 }, // Kelas
+    { wch: 26 }, // Mata Pelajaran
+    { wch: 15 }, // Overall Score
+    { wch: 42 }, // Nama Tugas
+    { wch: 22 }, // Deadline
+    { wch: 28 }, // Status Tugas
+    { wch: 24 }, // Status Clearance
+  ];
+
+  // Merged Header rows for title aesthetics
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
+    { s: { r: 3, c: 0 }, e: { r: 3, c: 8 } },
+  ];
+
+  // Create workbook
+  const wb = XLSX.utils.book_new();
+  const sheetName = isSingleStudent && targetStudentName
+    ? targetStudentName.slice(0, 25).replace(/[\\/?*[\]]/g, '')
+    : 'Student Clearance';
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+  // File Name
+  const cleanDate = now.toISOString().slice(0, 10);
+  let fileName: string;
+  if (isSingleStudent && targetStudentName) {
+    const cleanStudentName = targetStudentName.replace(/[^a-zA-Z0-9]/g, '_');
+    fileName = `Makarios_Clearance_${cleanStudentName}_${cleanDate}.xlsx`;
+  } else {
+    fileName = `Makarios_Clearance_Siswa_Terfilter_${cleanDate}.xlsx`;
+  }
+
+  // Trigger Download
+  try {
+    XLSX.writeFile(wb, fileName);
+  } catch (err) {
+    console.warn('XLSX.writeFile failed, using fallback Blob download:', err);
+    try {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (fallbackErr) {
+      console.error('All XLSX export attempts failed:', fallbackErr);
+    }
+  }
+}
+
 

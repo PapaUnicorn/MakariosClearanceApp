@@ -42,6 +42,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, er
       error.includes('test user') ||
       error.includes('Testing'));
 
+  const isOAuthConfigMismatch =
+    error &&
+    (error.includes('invalid-credential') ||
+      error.includes('invalid_client') ||
+      error.includes('oauth_config_error') ||
+      error.includes('Error getting access token') ||
+      error.includes('redirect_uri_mismatch') ||
+      error.includes('internal-error'));
+
+  const authDomain =
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
+    defaultConfig.authDomain ||
+    `${projectId}.firebaseapp.com`;
+
   const handleCopyDomain = () => {
     if (currentHostname) {
       navigator.clipboard.writeText(currentHostname);
@@ -134,6 +148,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading, er
                   Klik <strong>Add domain</strong>, tempelkan domain yang disalin di atas (<code className="bg-white/80 px-1 py-0.5 rounded font-mono text-[10px]">{currentHostname}</code>), lalu klik <strong>Save</strong>.
                 </li>
                 <li>Setelah disimpan, coba klik tombol login di bawah kembali.</li>
+              </ol>
+            </div>
+          </div>
+        ) : isOAuthConfigMismatch ? (
+          <div className="mb-6 p-4 bg-rose-50/90 border border-rose-300 rounded-2xl text-slate-800 text-xs shadow-xs space-y-3">
+            <div className="flex items-start space-x-2.5">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-black text-rose-950 text-sm">
+                  Konfigurasi Google OAuth Client ID / Secret Tidak Cocok
+                </h3>
+                <p className="text-rose-800 mt-1 leading-relaxed break-words">{error}</p>
+              </div>
+            </div>
+
+            <div className="bg-white border border-rose-200 rounded-xl p-3 space-y-1.5 text-[11px] text-slate-700">
+              <p className="font-bold text-slate-900">Pastikan konfigurasi berikut sesuai di Google Cloud &amp; Firebase:</p>
+              <ol className="list-decimal list-inside space-y-1 pl-1 leading-relaxed">
+                <li>
+                  Di <strong>Google Cloud Console &gt; Credentials</strong>, pastikan OAuth Client ID memiliki <strong>Authorized redirect URI</strong>:
+                  <div className="mt-1 bg-slate-100 px-2 py-1 rounded font-mono text-[10px] select-all break-all">
+                    https://{authDomain}/__/auth/handler
+                  </div>
+                </li>
+                <li>
+                  Di <strong>Firebase Console &gt; Authentication &gt; Sign-in method &gt; Google &gt; Web SDK configuration</strong>, pastikan <strong>Web client ID</strong> dan <strong>Web client secret</strong> sama persis dengan yang ada di Google Cloud Console.
+                </li>
               </ol>
             </div>
           </div>

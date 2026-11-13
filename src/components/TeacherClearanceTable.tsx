@@ -20,10 +20,12 @@ import {
   Calendar,
   FileSpreadsheet,
   Printer,
+  FileDown,
 } from 'lucide-react';
 import { TeacherSummaryRecord, FlattenedTeacherTaskRow } from '../types';
 import { exportFilteredTeacherTasksToPDF, exportSingleTeacherRecordToPDF, exportTeachersToPDF } from '../utils/pdfExport';
 import { exportFilteredTeacherTasksToXLSX } from '../utils/excelExport';
+import { exportFilteredTeacherTasksToDocx } from '../utils/docxExport';
 import { ExcelMultiSelectFilter } from './ExcelMultiSelectFilter';
 import { DateRangeFilter } from './DateRangeFilter';
 import { isTaskInDateRange, formatIndonesianDateStr } from '../utils/dateFilter';
@@ -608,6 +610,52 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
     }
   };
 
+  const [isExportingDocx, setIsExportingDocx] = useState(false);
+
+  const handlePreviewTeacher = () => {
+    if (records.length === 0) return;
+    if (singleTeacherName) {
+      const found = records.find((r) => r.teacherName === singleTeacherName);
+      if (found) {
+        onSelectTeacherRecord(found);
+        return;
+      }
+    }
+    if (selectedTeachers.length > 0) {
+      const found = records.find((r) => selectedTeachers.includes(r.teacherName));
+      if (found) {
+        onSelectTeacherRecord(found);
+        return;
+      }
+    }
+    onSelectTeacherRecord(records[0]);
+  };
+
+  const handleExportDocx = async () => {
+    if (filteredRows.length === 0) return;
+    setIsExportingDocx(true);
+    try {
+      const dateRangeLabel = (startDate || endDate)
+        ? `${startDate ? formatIndonesianDateStr(startDate, true) : 'Awal'} s/d ${endDate ? formatIndonesianDateStr(endDate, true) : 'Sekarang'}`
+        : undefined;
+
+      await exportFilteredTeacherTasksToDocx(filteredRows, {
+        singleTeacherName,
+        selectedTeachers: selectedTeachers.length < availableTeachers.length ? selectedTeachers : undefined,
+        monthStr: selectedMonth !== 'ALL' ? selectedMonthLabel : undefined,
+        dateRangeStr: dateRangeLabel,
+      });
+      setExportFeedback('File DOCX berhasil diunduh!');
+      setTimeout(() => setExportFeedback(null), 3500);
+    } catch (err) {
+      console.error('Export DOCX error:', err);
+      setExportFeedback('Gagal mengunduh DOCX. Silakan coba lagi.');
+      setTimeout(() => setExportFeedback(null), 3500);
+    } finally {
+      setIsExportingDocx(false);
+    }
+  };
+
   const handleExportSingleTeacher = (record: TeacherSummaryRecord) => {
     exportSingleTeacherRecordToPDF(record);
   };
@@ -620,8 +668,8 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
     <div id="teacher-clearance-hub" className="space-y-4">
       {/* Bento Controls Card with Maybank theme */}
       <div className="bg-white border border-amber-200/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5">
-        {/* Row 1: Search & Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        {/* Row 1: Search & Unified Export Buttons Group */}
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
           {/* Search */}
           <div className="relative flex-1 min-w-[240px]">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -647,38 +695,64 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
             )}
           </div>
 
-          {/* Action Buttons: Export to XLSX & Cetak PDF */}
-          <div className="flex items-center space-x-2 shrink-0">
+          {/* Kelompok Tombol Export: (pratinjau, export to pdf, export to docs, and export to excel) */}
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
             {exportFeedback && (
-              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg animate-fade-in">
+              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-lg animate-fade-in mr-1">
                 {exportFeedback}
               </span>
             )}
 
-            {/* Export to XLSX */}
+            {/* 1. Pratinjau */}
             <button
-              id="btn-export-teacher-xlsx"
+              id="btn-preview-teacher"
               type="button"
-              onClick={handleExportXLSX}
-              disabled={filteredRows.length === 0}
-              className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-800 disabled:opacity-50"
-              title={`Unduh data terfilter (${filteredRows.length} baris tugas) dalam format Microsoft Excel (.xlsx)`}
+              onClick={handlePreviewTeacher}
+              disabled={records.length === 0}
+              className="inline-flex items-center space-x-1 px-3 py-2 bg-white hover:bg-amber-50 disabled:opacity-50 text-slate-900 text-xs font-bold rounded-xl border border-amber-300 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              title="Lihat pratinjau detail tugas guru"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-              <span>Export to XLSX ({filteredRows.length})</span>
+              <Eye className="w-3.5 h-3.5 text-slate-700" />
+              <span>Pratinjau</span>
             </button>
 
-            {/* Cetak PDF */}
+            {/* 2. Export to PDF */}
             <button
               id="btn-export-teacher-pdf"
               type="button"
               onClick={handleExportPDF}
               disabled={filteredRows.length === 0}
-              className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 cursor-pointer border bg-slate-900 hover:bg-slate-800 text-white border-slate-800 disabled:opacity-50"
+              className="inline-flex items-center space-x-1 px-3 py-2 bg-[#FFC800] hover:bg-amber-400 disabled:opacity-50 text-slate-950 text-xs font-black rounded-xl border border-amber-400 shadow-2xs transition-all active:scale-95 cursor-pointer"
               title={`Cetak atau unduh laporan data terfilter (${filteredRows.length} baris tugas) dalam format PDF`}
             >
-              <Printer className="w-4 h-4 text-[#FFC800]" />
-              <span>Cetak PDF ({filteredRows.length})</span>
+              <FileDown className="w-3.5 h-3.5 text-slate-950" />
+              <span>Export to PDF</span>
+            </button>
+
+            {/* 3. Export to Docs */}
+            <button
+              id="btn-export-teacher-docx"
+              type="button"
+              onClick={handleExportDocx}
+              disabled={filteredRows.length === 0 || isExportingDocx}
+              className="inline-flex items-center space-x-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-amber-300 text-xs font-bold rounded-xl border border-slate-800 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              title={`Unduh laporan data terfilter (${filteredRows.length} baris tugas) dalam format Microsoft Word (.docx)`}
+            >
+              <FileText className="w-3.5 h-3.5 text-[#FFC800]" />
+              <span>{isExportingDocx ? 'Membuat DOCX...' : 'Export to Docs'}</span>
+            </button>
+
+            {/* 4. Export to Excel */}
+            <button
+              id="btn-export-teacher-xlsx"
+              type="button"
+              onClick={handleExportXLSX}
+              disabled={filteredRows.length === 0}
+              className="inline-flex items-center space-x-1 px-3 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl border border-emerald-800 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              title={`Unduh data terfilter (${filteredRows.length} baris tugas) dalam format Microsoft Excel (.xlsx)`}
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+              <span>Export to Excel</span>
             </button>
           </div>
         </div>
@@ -844,7 +918,7 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
         <div className="p-4 border-b border-amber-100 bg-amber-50/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-bold text-slate-800 text-sm">Daftar Grading Guru (1 Baris per Tugas)</h2>
+              <h2 className="font-bold text-slate-800 text-sm">Daftar Grading Guru</h2>
               {selectedMonth !== 'ALL' && (
                 <span className="text-[10px] font-extrabold bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full border border-amber-300">
                   Bulan: {selectedMonthLabel} ({monthScopeMode === 'EXACT' ? 'Tepat Bulan' : 's/d Bulan Ini'})
@@ -859,9 +933,6 @@ export const TeacherClearanceTable: React.FC<TeacherClearanceTableProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Format baris per tugas: Nama Guru • Kelas • Mata Pelajaran • Tugas Belum Dinilai
-            </p>
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shadow-2xs">

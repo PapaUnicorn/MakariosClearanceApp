@@ -110,15 +110,15 @@ export function exportStudentMonthlyProgressReportPDF(
   doc.text(schoolTitle, pageWidth / 2, bannerY + 17, { align: 'center' });
   doc.text('Student Monthly Learning Progress Report', pageWidth / 2, bannerY + 31, { align: 'center' });
 
-  // 2. Student Name (Blue) & Month (Black) below yellow banner - strictly 10pt
-  const nameY = bannerY + bannerHeight + 18;
-  doc.setFontSize(10); // Strictly 10pt
+  // 2. Student Name (Blue) & Month (Black) below yellow banner - enlarged student name
+  const nameY = bannerY + bannerHeight + 20;
+  doc.setFontSize(14); // Enlarged font for student name
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(37, 99, 235); // Blue 600
   doc.text(studentName.toUpperCase(), pageWidth / 2, nameY, { align: 'center' });
 
-  const monthY = nameY + 15;
-  doc.setFontSize(10); // Strictly 10pt
+  const monthY = nameY + 16;
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42); // Black
   doc.text(currentMonth, pageWidth / 2, monthY, { align: 'center' });
@@ -189,8 +189,8 @@ export function exportStudentMonthlyProgressReportPDF(
       overflow: 'linebreak',
       valign: 'top',
       halign: 'left',
-      lineColor: [226, 232, 240], // Slate 200
-      lineWidth: 0.75,
+      lineColor: [148, 163, 184], // Slate 400 - Distinct visible borders between subjects
+      lineWidth: 1.2,
       textColor: [15, 23, 42],
     },
     alternateRowStyles: {

@@ -116,7 +116,7 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
             </div>
             <div>
               <h3 className="text-sm font-bold leading-tight">Student Monthly Learning Progress Report</h3>
-              <p className="text-[11px] text-amber-300/90 font-medium">Template Resmi Makarios Christian School</p>
+              <p className="text-[11px] text-amber-300 font-bold uppercase tracking-wider">{studentName}</p>
             </div>
           </div>
 
@@ -190,22 +190,22 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
               </div>
 
               {/* Student Name (Blue) & Month (Black) */}
-              <div className="text-center pt-4 space-y-1">
-                <div className="text-[10pt] font-black text-blue-600 tracking-wide uppercase">
+              <div className="text-center pt-4 space-y-1.5">
+                <div className="text-[16pt] sm:text-[18pt] font-black text-blue-600 tracking-wider uppercase leading-snug print:text-[18pt]">
                   {studentName}
                 </div>
-                <div className="text-[10pt] font-bold text-slate-950 tracking-normal">
+                <div className="text-[10.5pt] font-bold text-slate-950 tracking-normal">
                   {currentMonthStr}
                 </div>
               </div>
             </div>
 
-            {/* The Report Table with Maybank Yellow Header - Strictly 10pt */}
-            <div className="border border-slate-300 rounded-lg overflow-hidden shadow-2xs">
+            {/* The Report Table with Maybank Yellow Header - Clear Subject Boundaries */}
+            <div className="border-2 border-slate-400 rounded-lg overflow-hidden shadow-2xs">
               <table className="w-full text-left border-collapse text-[10pt]">
                 <thead>
                   {/* Maybank Theme Distinct Table Header */}
-                  <tr className="bg-[#FFC800] text-slate-950 text-[10pt] uppercase tracking-wider font-black divide-x divide-amber-500/40 border-b border-amber-500">
+                  <tr className="bg-[#FFC800] text-slate-950 text-[10pt] uppercase tracking-wider font-black divide-x-2 divide-amber-600/50 border-b-2 border-amber-600">
                     <th className="py-2.5 px-3 w-[8%] text-center align-middle text-[10pt]">No.</th>
                     <th className="py-2.5 px-3.5 w-[24%] text-left align-middle text-[10pt]">Subject</th>
                     <th className="py-2.5 px-3 w-[14%] text-center align-middle leading-tight text-[10pt]">
@@ -214,7 +214,7 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
                     <th className="py-2.5 px-4 w-[54%] text-left align-middle text-[10pt]">Missing Assignments</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 text-[10pt] bg-white">
+                <tbody className="divide-y-2 divide-slate-300 text-[10pt] bg-white">
                   {records.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="py-8 text-center text-slate-400 italic text-[10pt]">
@@ -254,29 +254,29 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
                         <tr
                           key={rec.id || idx}
                           style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
-                          className={`divide-x divide-slate-200 align-top transition-colors break-inside-avoid ${
+                          className={`divide-x-2 divide-slate-300 border-b-2 border-slate-300 align-top transition-colors break-inside-avoid ${
                             idx % 2 === 1 ? 'bg-amber-50/20' : 'bg-white'
                           }`}
                         >
                           {/* 1. No. */}
-                          <td className="py-2.5 px-3 text-center font-bold text-slate-700 align-top text-[10pt]">
+                          <td className="py-3 px-3 text-center font-bold text-slate-700 align-top text-[10pt]">
                             {idx + 1}.
                           </td>
 
                           {/* 2. Compact Subject */}
-                          <td className="py-2.5 px-3.5 font-bold text-slate-900 align-top leading-snug text-[10pt]">
+                          <td className="py-3 px-3.5 font-bold text-slate-900 align-top leading-snug text-[10pt]">
                             {rec.courseName}
                           </td>
 
                           {/* 3. Compact Overall Score */}
-                          <td className="py-2.5 px-3 text-center align-top text-[10pt]">
-                            <span className="inline-block px-2.5 py-0.5 rounded-md font-bold text-slate-950 bg-amber-100/80 border border-amber-200 text-[10pt]">
+                          <td className="py-3 px-3 text-center align-top text-[10pt]">
+                            <span className="inline-block px-2.5 py-0.5 rounded-md font-bold text-slate-950 bg-amber-100/80 border border-amber-300 text-[10pt]">
                               {overallScoreDisplay}
                             </span>
                           </td>
 
                           {/* 4. Expanded Missing Assignments */}
-                          <td className="py-2.5 px-4 align-top text-[10pt]">
+                          <td className="py-3 px-4 align-top text-[10pt]">
                             {missingTasks.length === 0 ? (
                               <div className="text-emerald-700 font-semibold italic flex items-center space-x-1.5 text-[10pt]">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />

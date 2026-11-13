@@ -267,8 +267,6 @@ export default function App() {
         isSyncing={syncProgress.isSyncing}
         totalStudentsCount={studentRecords.length}
         totalTeachersCount={teacherSummaryRecords.length}
-        databaseMeta={databaseMeta}
-        onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)}
       />
 
       {/* Main Container */}

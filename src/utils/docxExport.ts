@@ -12,7 +12,7 @@ import {
   VerticalAlign,
   ShadingType,
 } from 'docx';
-import { StudentClearanceRecord, getTaskStatusInfo } from '../types';
+import { StudentClearanceRecord, FlattenedTeacherTaskRow, getTaskStatusInfo } from '../types';
 import { filterTasksUpToMonth } from './dateFilter';
 
 export async function exportStudentMonthlyReportDocx(
@@ -400,7 +400,7 @@ export async function exportStudentMonthlyReportDocx(
 
           new Paragraph({ text: '' }), // Spacer
 
-          // Student Name (Blue) - 10pt
+          // Student Name (Blue) - Enlarged
           new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [
@@ -408,7 +408,7 @@ export async function exportStudentMonthlyReportDocx(
                 text: studentName.toUpperCase(),
                 bold: true,
                 color: '2563EB', // Blue
-                size: 20, // 10pt
+                size: 28, // 14pt (Enlarged)
                 font: 'Calibri',
               }),
             ],
@@ -430,11 +430,19 @@ export async function exportStudentMonthlyReportDocx(
 
           new Paragraph({ text: '' }), // Spacer
 
-          // The Report Table
+          // The Report Table - Clear boundaries between subjects
           new Table({
             width: {
               size: 100,
               type: WidthType.PERCENTAGE,
+            },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 12, color: '64748B' },
+              bottom: { style: BorderStyle.SINGLE, size: 12, color: '64748B' },
+              left: { style: BorderStyle.SINGLE, size: 12, color: '64748B' },
+              right: { style: BorderStyle.SINGLE, size: 12, color: '64748B' },
+              insideHorizontal: { style: BorderStyle.SINGLE, size: 12, color: '94A3B8' }, // Clear horizontal boundary between subjects
+              insideVertical: { style: BorderStyle.SINGLE, size: 6, color: 'CBD5E1' },
             },
             rows: tableRows,
           }),
@@ -455,6 +463,293 @@ export async function exportStudentMonthlyReportDocx(
   link.href = url;
   const sanitized = studentName.replace(/[^a-zA-Z0-9_-]/g, '_');
   link.download = `Progress_Report_${sanitized}_${currentMonth.replace(/\s+/g, '_')}.docx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+export async function exportFilteredTeacherTasksToDocx(
+  rows: FlattenedTeacherTaskRow[],
+  filterOptions: {
+    singleTeacherName?: string;
+    selectedTeachers?: string[];
+    monthStr?: string;
+    dateRangeStr?: string;
+  } = {}
+) {
+  if (!rows || rows.length === 0) return;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const uniqueTeachers = Array.from(new Set(rows.map((r) => r.teacherName)));
+  const isSingleTeacher =
+    uniqueTeachers.length === 1 ||
+    Boolean(filterOptions.singleTeacherName) ||
+    (filterOptions.selectedTeachers && filterOptions.selectedTeachers.length === 1);
+
+  const targetTeacherName =
+    filterOptions.singleTeacherName ||
+    (filterOptions.selectedTeachers && filterOptions.selectedTeachers.length === 1
+      ? filterOptions.selectedTeachers[0]
+      : uniqueTeachers[0]);
+
+  const totalUngradedSubmissions = rows.reduce((acc, r) => acc + (r.ungradedCount || 0), 0);
+
+  const tableRows: TableRow[] = [];
+
+  tableRows.push(
+    new TableRow({
+      tableHeader: true,
+      cantSplit: true,
+      children: [
+        new TableCell({
+          width: { size: 5, type: WidthType.PERCENTAGE },
+          verticalAlign: VerticalAlign.CENTER,
+          shading: { fill: 'FFC800', type: ShadingType.CLEAR },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: 'No.', bold: true, size: 20, color: '0F172A', font: 'Calibri' })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 22, type: WidthType.PERCENTAGE },
+          verticalAlign: VerticalAlign.CENTER,
+          shading: { fill: 'FFC800', type: ShadingType.CLEAR },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              children: [new TextRun({ text: 'Nama Guru', bold: true, size: 20, color: '0F172A', font: 'Calibri' })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 12, type: WidthType.PERCENTAGE },
+          verticalAlign: VerticalAlign.CENTER,
+          shading: { fill: 'FFC800', type: ShadingType.CLEAR },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: 'Kelas', bold: true, size: 20, color: '0F172A', font: 'Calibri' })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE },
+          verticalAlign: VerticalAlign.CENTER,
+          shading: { fill: 'FFC800', type: ShadingType.CLEAR },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              children: [new TextRun({ text: 'Mata Pelajaran', bold: true, size: 20, color: '0F172A', font: 'Calibri' })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 26, type: WidthType.PERCENTAGE },
+          verticalAlign: VerticalAlign.CENTER,
+          shading: { fill: 'FFC800', type: ShadingType.CLEAR },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              children: [new TextRun({ text: 'Judul Tugas & Deadline', bold: true, size: 20, color: '0F172A', font: 'Calibri' })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 15, type: WidthType.PERCENTAGE },
+          verticalAlign: VerticalAlign.CENTER,
+          shading: { fill: 'FFC800', type: ShadingType.CLEAR },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: 'Belum Dinilai', bold: true, size: 20, color: '0F172A', font: 'Calibri' })],
+            }),
+          ],
+        }),
+      ],
+    })
+  );
+
+  rows.forEach((row, index) => {
+    const isRowClear = row.isClear || row.ungradedCount === 0;
+    const dueText = row.dueDateStr && row.dueDateStr !== 'Tanpa Batas Waktu' ? row.dueDateStr : 'Tanpa batas waktu';
+
+    tableRows.push(
+      new TableRow({
+        cantSplit: true,
+        children: [
+          new TableCell({
+            verticalAlign: VerticalAlign.TOP,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: `${index + 1}.`, size: 19, font: 'Calibri' })],
+              }),
+            ],
+          }),
+          new TableCell({
+            verticalAlign: VerticalAlign.TOP,
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: row.teacherName, bold: true, size: 19, color: '0F172A', font: 'Calibri' }),
+                  row.teacherEmail ? new TextRun({ text: `\n${row.teacherEmail}`, size: 16, color: '64748B', font: 'Calibri' }) : new TextRun({ text: '' }),
+                ],
+              }),
+            ],
+          }),
+          new TableCell({
+            verticalAlign: VerticalAlign.TOP,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: row.className || '-', bold: true, size: 19, font: 'Calibri' })],
+              }),
+            ],
+          }),
+          new TableCell({
+            verticalAlign: VerticalAlign.TOP,
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: row.courseName || '-', size: 19, font: 'Calibri' })],
+              }),
+            ],
+          }),
+          new TableCell({
+            verticalAlign: VerticalAlign.TOP,
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: isRowClear ? 'Semua tugas telah dinilai (Clear)' : row.courseWorkTitle, bold: !isRowClear, size: 19, color: isRowClear ? '16A34A' : '0F172A', font: 'Calibri' }),
+                  !isRowClear ? new TextRun({ text: `\nDeadline: ${dueText}`, size: 16, color: '64748B', font: 'Calibri' }) : new TextRun({ text: '' }),
+                ],
+              }),
+            ],
+          }),
+          new TableCell({
+            verticalAlign: VerticalAlign.TOP,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: isRowClear ? '0 (Clear)' : `${row.ungradedCount} Submisi`,
+                    bold: true,
+                    size: 19,
+                    color: isRowClear ? '16A34A' : 'E11D48',
+                    font: 'Calibri',
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+  });
+
+  const headerBannerTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 8, color: 'EAB308' },
+      bottom: { style: BorderStyle.SINGLE, size: 8, color: 'EAB308' },
+      left: { style: BorderStyle.SINGLE, size: 8, color: 'EAB308' },
+      right: { style: BorderStyle.SINGLE, size: 8, color: 'EAB308' },
+    },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            verticalAlign: VerticalAlign.CENTER,
+            shading: { fill: 'FFC800', type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: 'SEKOLAH KRISTEN MAKARIOS',
+                    bold: true,
+                    size: 24,
+                    color: '0F172A',
+                    font: 'Calibri',
+                  }),
+                ],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: isSingleTeacher
+                      ? `Laporan Tugas Belum Dinilai Guru: ${targetTeacherName.toUpperCase()}`
+                      : 'Rekapitulasi Clearance Tugas Belum Dinilai Guru (Teacher Grading Hub)',
+                    bold: true,
+                    size: 20,
+                    color: '0F172A',
+                    font: 'Calibri',
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: { top: 720, bottom: 720, left: 720, right: 720 },
+          },
+        },
+        children: [
+          headerBannerTable,
+          new Paragraph({ text: '' }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Tanggal Cetak: ${dateStr}  |  Total Antrean: ${totalUngradedSubmissions} Siswa  |  Total Tugas: ${rows.length} Baris`,
+                size: 18,
+                color: '64748B',
+                font: 'Calibri',
+              }),
+            ],
+          }),
+          new Paragraph({ text: '' }),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 12, color: '64748B' },
+              bottom: { style: BorderStyle.SINGLE, size: 12, color: '64748B' },
+              left: { style: BorderStyle.SINGLE, size: 12, color: '64748B' },
+              right: { style: BorderStyle.SINGLE, size: 12, color: '64748B' },
+              insideHorizontal: { style: BorderStyle.SINGLE, size: 12, color: '94A3B8' },
+              insideVertical: { style: BorderStyle.SINGLE, size: 6, color: 'CBD5E1' },
+            },
+            rows: tableRows,
+          }),
+        ],
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const sanitized = isSingleTeacher && targetTeacherName ? targetTeacherName.replace(/[^a-zA-Z0-9_-]/g, '_') : 'Rekap_Guru';
+  link.download = `Makarios_Grading_${sanitized}_${now.toISOString().slice(0, 10)}.docx`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

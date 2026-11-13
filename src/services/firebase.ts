@@ -2,6 +2,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   User,
@@ -49,6 +50,21 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
+  // Check if returning from a redirect login flow
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result) {
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+          cachedAccessToken = credential.accessToken;
+          if (onAuthSuccess) onAuthSuccess(result.user, cachedAccessToken);
+        }
+      }
+    })
+    .catch((err) => {
+      console.warn('Redirect sign-in check error:', err);
+    });
+
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       if (cachedAccessToken) {
@@ -64,25 +80,32 @@ export const initAuth = (
 };
 
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+  const popupStartTime = Date.now();
   try {
     isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
-      throw new Error('Gagal mendapatkan token akses dari Google.');
+      throw new Error('Gagal mendapatkan token akses dari Google. Pastikan izin akses Google Classroom telah disetujui.');
     }
 
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
-    // 1. Popup closed by user or cancelled is an intentional user cancellation, not a system error
+    // 1. Popup closed by user or cancelled
     if (
       error?.code === 'auth/popup-closed-by-user' ||
       error?.code === 'auth/cancelled-popup-request' ||
       error?.message?.includes('popup-closed-by-user') ||
       error?.message?.includes('cancelled-popup-request')
     ) {
-      console.warn('Login Google dibatalkan atau jendela popup ditutup oleh pengguna.');
+      const elapsedMs = Date.now() - popupStartTime;
+      console.warn(`Login Google popup ditutup (${elapsedMs}ms):`, error?.code);
+      if (elapsedMs > 3000) {
+        throw new Error(
+          'Jendela login Google tertutup sebelum sesi berhasil diterima aplikasi. Silakan coba login kembali atau buka aplikasi di tab baru.'
+        );
+      }
       return null;
     }
 
@@ -124,6 +147,23 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
       );
       (deniedError as any).code = 'auth/access-denied';
       throw deniedError;
+    }
+
+    // 5. OAuth Client ID / Secret mismatch or invalid redirect URI
+    if (
+      error?.code === 'auth/invalid-credential' ||
+      error?.code === 'auth/internal-error' ||
+      error?.message?.includes('invalid_client') ||
+      error?.message?.includes('Error getting access token') ||
+      error?.message?.includes('redirect_uri_mismatch') ||
+      error?.message?.includes('INVALID_IDP_RESPONSE')
+    ) {
+      console.error('OAuth Client configuration mismatch:', error);
+      const oauthConfigError = new Error(
+        `Konfigurasi Google OAuth Client ID / Secret di Firebase Authentication tidak cocok (${error?.code || 'oauth_config_error'}): ${error?.message || 'Gagal menukar token Google.'}`
+      );
+      (oauthConfigError as any).code = error?.code || 'auth/invalid-credential';
+      throw oauthConfigError;
     }
 
     console.error('Sign in error:', error);
