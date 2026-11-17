@@ -186,11 +186,11 @@ export const ClearanceChecklistModal: React.FC<ClearanceChecklistModalProps> = (
         </div>
 
         {/* Printable Document Container (A4 Printable) */}
-        <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-amber-50/30">
+        <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-amber-50/30 print:p-0 print:bg-white print:overflow-visible">
           <div
             id="printable-clearance-checklist"
             style={{ fontSize: '10pt' }}
-            className="bg-white p-6 sm:p-10 border border-slate-200 rounded-xl shadow-xs max-w-3xl mx-auto font-sans text-slate-900 text-[10pt]"
+            className="bg-white p-6 sm:p-10 border border-slate-200 rounded-xl shadow-xs max-w-3xl mx-auto font-sans text-slate-900 text-[10pt] print:p-0 print:border-none print:rounded-none print:shadow-none print:max-w-full"
           >
             {/* Header Section */}
             <div className="mb-6">
@@ -216,7 +216,7 @@ export const ClearanceChecklistModal: React.FC<ClearanceChecklistModalProps> = (
             </div>
 
             {/* Checklist Table */}
-            <div className="border-2 border-slate-400 rounded-lg overflow-hidden shadow-2xs">
+            <div className="border-2 border-slate-400 rounded-lg overflow-hidden shadow-2xs print:overflow-visible print:border-none print:rounded-none print:shadow-none">
               <table className="w-full text-left border-collapse text-[10pt]">
                 <thead>
                   <tr className="bg-[#FFC800] text-slate-950 text-[10pt] uppercase tracking-wider font-black divide-x-2 divide-amber-600/50 border-b-2 border-amber-600">

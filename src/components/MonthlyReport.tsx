@@ -559,7 +559,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
             <span className="text-[10px] text-slate-400">Halaman Laporan Bulanan</span>
           </div>
 
-          <table className="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden border-collapse">
+          <table className="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden print:overflow-visible print:rounded-none border-collapse">
             <thead className="bg-slate-100 text-slate-700 font-bold text-[10px] uppercase tracking-wider border-b border-slate-300">
               <tr>
                 <th className="px-2.5 py-2.5 text-center w-8">No</th>

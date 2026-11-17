@@ -183,6 +183,7 @@ export function getTaskStatusInfo(status: TaskStatusType, assignedGrade?: number
 export interface StudentTaskItem {
   courseWorkId: string;
   title: string;
+  description?: string;
   courseId: string;
   courseName: string;
   section?: string;
@@ -191,6 +192,8 @@ export interface StudentTaskItem {
   dueYear?: number;
   dueMonth?: number; // 1-12
   dueDay?: number;
+  dueHour?: number;
+  dueMinute?: number;
   creationTime?: string;
   maxPoints?: number;
   status: TaskStatusType;

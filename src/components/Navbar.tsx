@@ -5,10 +5,11 @@ import {
   GraduationCap,
   Users,
   BookOpen,
+  ClipboardList,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 
-export type AppTabType = 'students' | 'teachers';
+export type AppTabType = 'students' | 'teachers' | 'tracker';
 
 interface NavbarProps {
   user: User | null;
@@ -139,6 +140,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {totalTeachersCount}
               </span>
             )}
+          </button>
+
+          <button
+            id="tab-tracker-btn"
+            onClick={() => setActiveTab('tracker')}
+            className={`inline-flex items-center space-x-2 py-3 px-2 sm:px-1 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'tracker'
+                ? 'border-amber-500 text-amber-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <ClipboardList className="w-4 h-4" />
+            <span>Classroom Assignment Tracker</span>
           </button>
         </div>
       </div>

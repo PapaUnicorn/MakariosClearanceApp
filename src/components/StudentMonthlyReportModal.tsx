@@ -171,11 +171,11 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
         </div>
 
         {/* Printable Report Document (Styled with HTML & Tailwind CSS - Maybank Golden Theme - Strictly 10pt Font) */}
-        <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-amber-50/30">
+        <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-amber-50/30 print:p-0 print:bg-white print:overflow-visible">
           <div
             id="printable-report-sheet"
             style={{ fontSize: '10pt' }}
-            className="bg-white p-6 sm:p-10 border border-slate-200 rounded-xl shadow-xs max-w-3xl mx-auto font-sans text-slate-900 text-[10pt]"
+            className="bg-white p-6 sm:p-10 border border-slate-200 rounded-xl shadow-xs max-w-3xl mx-auto font-sans text-slate-900 text-[10pt] print:p-0 print:border-none print:rounded-none print:shadow-none print:max-w-full"
           >
             {/* Header section with Maybank Yellow banner */}
             <div className="mb-6">
@@ -201,7 +201,7 @@ export const StudentMonthlyReportModal: React.FC<StudentMonthlyReportModalProps>
             </div>
 
             {/* The Report Table with Maybank Yellow Header - Clear Subject Boundaries */}
-            <div className="border-2 border-slate-400 rounded-lg overflow-hidden shadow-2xs">
+            <div className="border-2 border-slate-400 rounded-lg overflow-hidden shadow-2xs print:overflow-visible print:border-none print:rounded-none print:shadow-none">
               <table className="w-full text-left border-collapse text-[10pt]">
                 <thead>
                   {/* Maybank Theme Distinct Table Header */}

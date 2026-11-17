@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Strict A4 Print Styles & Pagination Control */
+/* Strict A4 Portrait Print Styles & Pagination Control */
 @page {
   size: A4 portrait;
   margin: 10mm 12mm 12mm 12mm;
@@ -8,74 +8,105 @@
 
 @media print {
   html, body {
-    width: 210mm !important;
+    width: 100% !important;
     height: auto !important;
     background: #ffffff !important;
     color: #0f172a !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Hide everything on the page except the printable report */
-  body * {
-    visibility: hidden;
+  /* Hide everything outside the active printable sheet without using position:absolute */
+  body:has(#printable-assignment-tracker) #root *:not(:has(#printable-assignment-tracker)):not(#printable-assignment-tracker):not(#printable-assignment-tracker *),
+  body:has(#printable-clearance-checklist) #root *:not(:has(#printable-clearance-checklist)):not(#printable-clearance-checklist):not(#printable-clearance-checklist *),
+  body:has(#printable-report-sheet) #root *:not(:has(#printable-report-sheet)):not(#printable-report-sheet):not(#printable-report-sheet *),
+  body:not(:has(#printable-assignment-tracker)):not(:has(#printable-clearance-checklist)):not(:has(#printable-report-sheet)):has(#tracker-main-printable) #root *:not(:has(#tracker-main-printable)):not(#tracker-main-printable):not(#tracker-main-printable *) {
+    display: none !important;
   }
 
-  #printable-report-sheet,
-  #printable-report-sheet *,
-  #printable-clearance-checklist,
-  #printable-clearance-checklist * {
-    visibility: visible;
-  }
-
-  #printable-report-sheet,
-  #printable-clearance-checklist {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+  /* Reset all ancestors of the printable sheet to static block flow with overflow visible so multi-page thead repeats properly */
+  #root,
+  body:has(#printable-assignment-tracker) *:has(#printable-assignment-tracker),
+  body:has(#printable-clearance-checklist) *:has(#printable-clearance-checklist),
+  body:has(#printable-report-sheet) *:has(#printable-report-sheet),
+  body:not(:has(#printable-assignment-tracker)):not(:has(#printable-clearance-checklist)):not(:has(#printable-report-sheet)):has(#tracker-main-printable) *:has(#tracker-main-printable) {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
     width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    background: transparent !important;
+    background: #ffffff !important;
+    transform: none !important;
   }
 
-  /* Hide modal backdrop and controls */
-  #monthly-report-modal-backdrop,
-  #student-detail-modal-backdrop,
-  #teacher-detail-modal-backdrop,
-  #clearance-checklist-modal-backdrop {
+  #printable-report-sheet,
+  #printable-clearance-checklist,
+  #printable-assignment-tracker,
+  #tracker-main-printable {
+    display: block !important;
     position: static !important;
-    background: none !important;
-    padding: 0 !important;
-    overflow: visible !important;
-  }
-
-  #monthly-report-modal,
-  #clearance-checklist-modal {
-    border: none !important;
-    box-shadow: none !important;
+    width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
     max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
     overflow: visible !important;
   }
 
-  /* Table Pagination Control: Keep Subject rows intact on A4 */
-  table {
+  /* Ensure no wrapper inside printable sheets clips tables across pages */
+  #printable-report-sheet div,
+  #printable-clearance-checklist div,
+  #printable-assignment-tracker div,
+  #tracker-main-printable div {
+    overflow: visible !important;
+  }
+
+  /* Keep print:hidden elements hidden */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Table Pagination Control: Repeat thead on every A4 page & keep rows intact */
+  #printable-report-sheet table,
+  #printable-clearance-checklist table,
+  #printable-assignment-tracker table,
+  #tracker-main-printable table {
     width: 100% !important;
     border-collapse: collapse !important;
+    overflow: visible !important;
     page-break-inside: auto !important;
     break-inside: auto !important;
+    border: 1px solid #64748b !important;
   }
 
-  /* Distinct borders between subject rows in print */
-  #printable-report-sheet table,
-  #printable-clearance-checklist table {
-    border: 2px solid #64748b !important;
+  #printable-report-sheet thead,
+  #printable-clearance-checklist thead,
+  #printable-assignment-tracker thead,
+  #tracker-main-printable thead {
+    display: table-header-group !important;
+  }
+
+  #printable-report-sheet tbody,
+  #printable-clearance-checklist tbody,
+  #printable-assignment-tracker tbody,
+  #tracker-main-printable tbody {
+    display: table-row-group !important;
   }
 
   #printable-report-sheet thead tr,
@@ -83,26 +114,32 @@
     border-bottom: 2px solid #b45309 !important;
   }
 
+  #printable-assignment-tracker thead tr,
+  #tracker-main-printable thead tr {
+    border-bottom: 1.5px solid #64748b !important;
+  }
+
   #printable-report-sheet tbody tr,
-  #printable-clearance-checklist tbody tr {
-    border-bottom: 2px solid #94a3b8 !important;
+  #printable-clearance-checklist tbody tr,
+  #printable-assignment-tracker tbody tr,
+  #tracker-main-printable tbody tr {
+    border-bottom: 1px solid #94a3b8 !important;
   }
 
   #printable-report-sheet td,
   #printable-report-sheet th,
   #printable-clearance-checklist td,
-  #printable-clearance-checklist th {
-    border-right: 1px solid #cbd5e1 !important;
+  #printable-clearance-checklist th,
+  #printable-assignment-tracker td,
+  #printable-assignment-tracker th,
+  #tracker-main-printable td,
+  #tracker-main-printable th {
+    border: 1px solid #94a3b8 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
 
-  /* Repeat table header if multi-page */
-  thead {
-    display: table-header-group !important;
-  }
-
-  /* STRICT: Never cut a subject row in the middle. If it overflows, move the whole subject to the new page */
+  /* STRICT: Never cut a row in the middle across A4 page boundaries */
   tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;

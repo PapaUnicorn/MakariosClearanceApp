@@ -19,6 +19,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { LoadingProgress } from './components/LoadingProgress';
 import { StudentClearanceTable } from './components/StudentClearanceTable';
 import { TeacherClearanceTable } from './components/TeacherClearanceTable';
+import { ClassroomAssignmentTracker } from './components/ClassroomAssignmentTracker';
 import { StudentDetailModal } from './components/StudentDetailModal';
 import { TeacherDetailModal } from './components/TeacherDetailModal';
 import { GoogleSheetsDatabaseModal } from './components/GoogleSheetsDatabaseModal';
@@ -379,6 +380,10 @@ export default function App() {
                 records={teacherSummaryRecords}
                 onSelectTeacherRecord={(record) => setSelectedTeacherRecord(record)}
               />
+            )}
+
+            {activeTab === 'tracker' && (
+              <ClassroomAssignmentTracker records={studentRecords} />
             )}
           </div>
         )}

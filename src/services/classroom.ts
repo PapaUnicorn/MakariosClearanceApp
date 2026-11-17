@@ -480,6 +480,7 @@ export async function compileClearanceData(
         const taskItem: StudentTaskItem = {
           courseWorkId: cw.id,
           title: cw.title || 'Tugas Tanpa Judul',
+          description: cw.description,
           courseId: course.id,
           courseName: courseDisplayName,
           section: sectionName,
@@ -488,6 +489,8 @@ export async function compileClearanceData(
           dueYear: cw.dueDate?.year,
           dueMonth: cw.dueDate?.month,
           dueDay: cw.dueDate?.day,
+          dueHour: cw.dueTime?.hours,
+          dueMinute: cw.dueTime?.minutes,
           creationTime: cw.creationTime,
           maxPoints: cw.maxPoints,
           status,
